@@ -1,18 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
-  MessageSquare,
   Send,
   Sparkles,
   Database,
   Terminal,
   Bot,
   User,
-  ShieldCheck,
-  Zap,
-  CheckCircle2
 } from 'lucide-react';
 import { api } from '../services/api';
-import { ChatMessage, ChatSession, Dataset } from '../types';
+import { ChatMessage, Dataset } from '../types';
 
 export const ChatPage: React.FC = () => {
   const [datasets, setDatasets] = useState<Dataset[]>([]);
@@ -91,23 +87,23 @@ export const ChatPage: React.FC = () => {
   return (
     <div className="p-8 max-w-5xl mx-auto h-[calc(100vh-4rem)] flex flex-col space-y-4">
       {/* Header & Dataset Context Selector */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-800 shrink-0">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-4 border-b border-slate-200 shrink-0">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-100 flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-emerald-400" />
+          <h1 className="text-xl font-extrabold text-slate-900 flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-emerald-600" />
             AutoDS Grounded Data Science Agent
           </h1>
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-500">
             Answers are grounded strictly in computed dataset profiles, experiment metrics, and safe SQL tools.
           </p>
         </div>
 
         <div className="flex items-center space-x-2">
-          <Database className="w-4 h-4 text-slate-400" />
+          <Database className="w-4 h-4 text-slate-500" />
           <select
             value={selectedDatasetId}
             onChange={(e) => setSelectedDatasetId(e.target.value)}
-            className="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-xl p-2 focus:outline-none focus:border-emerald-500"
+            className="bg-white border border-slate-300 text-slate-800 text-xs rounded-xl p-2 focus:outline-none focus:border-emerald-500 shadow-2xs"
           >
             {datasets.map((ds) => (
               <option key={ds.id} value={ds.id}>
@@ -122,12 +118,12 @@ export const ChatPage: React.FC = () => {
       <div className="flex-1 overflow-y-auto space-y-4 pr-2">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-6 text-slate-500 p-8">
-            <div className="w-16 h-16 rounded-2xl bg-slate-900 flex items-center justify-center text-indigo-400 border border-slate-800 shadow-inner">
+            <div className="w-16 h-16 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-2xs">
               <Bot className="w-8 h-8" />
             </div>
             <div className="max-w-md space-y-1">
-              <h3 className="font-bold text-sm text-slate-200">Ask AutoDS Anything</h3>
-              <p className="text-xs text-slate-400">
+              <h3 className="font-bold text-sm text-slate-800">Ask AutoDS Anything</h3>
+              <p className="text-xs text-slate-500">
                 Inquire about model performance, feature attributions, dataset distributions, or ask questions that trigger automatic SQL queries.
               </p>
             </div>
@@ -138,7 +134,7 @@ export const ChatPage: React.FC = () => {
                 <button
                   key={i}
                   onClick={() => handleSendMessage(prompt)}
-                  className="text-xs px-3 py-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition"
+                  className="text-xs px-3 py-1.5 rounded-full bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs transition"
                 >
                   "{prompt}"
                 </button>
@@ -154,7 +150,7 @@ export const ChatPage: React.FC = () => {
                 className={`flex items-start space-x-3 ${isUser ? 'justify-end' : 'justify-start'}`}
               >
                 {!isUser && (
-                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-indigo-600 flex items-center justify-center text-white shrink-0 text-xs shadow-sm">
+                  <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-indigo-600 flex items-center justify-center text-white shrink-0 text-xs shadow-2xs">
                     <Bot className="w-4 h-4" />
                   </div>
                 )}
@@ -162,14 +158,14 @@ export const ChatPage: React.FC = () => {
                 <div
                   className={`max-w-2xl p-4 rounded-2xl text-xs space-y-2 leading-relaxed ${
                     isUser
-                      ? 'bg-indigo-600 text-white rounded-tr-none'
-                      : 'glass-panel text-slate-200 rounded-tl-none border-slate-800'
+                      ? 'bg-indigo-600 text-white rounded-tr-none shadow-xs'
+                      : 'bg-white text-slate-800 rounded-tl-none border border-slate-200 shadow-xs'
                   }`}
                 >
                   <div className="whitespace-pre-wrap font-sans">{msg.content}</div>
 
                   {msg.tool_calls_json && (
-                    <div className="pt-2 border-t border-slate-800/80 flex items-center space-x-2 text-[10px] text-emerald-400 font-mono">
+                    <div className="pt-2 border-t border-slate-100 flex items-center space-x-2 text-[10px] text-emerald-700 font-mono font-medium">
                       <Terminal className="w-3 h-3 shrink-0" />
                       <span>Executed: {msg.tool_calls_json.tool_name || 'safe_tool'}</span>
                     </div>
@@ -177,7 +173,7 @@ export const ChatPage: React.FC = () => {
                 </div>
 
                 {isUser && (
-                  <div className="w-8 h-8 rounded-xl bg-slate-800 flex items-center justify-center text-slate-300 shrink-0 text-xs border border-slate-700">
+                  <div className="w-8 h-8 rounded-xl bg-slate-200 flex items-center justify-center text-slate-700 shrink-0 text-xs border border-slate-300">
                     <User className="w-4 h-4" />
                   </div>
                 )}
@@ -186,13 +182,13 @@ export const ChatPage: React.FC = () => {
           })
         )}
         {loading && (
-          <div className="flex items-center space-x-3 text-slate-400 text-xs">
+          <div className="flex items-center space-x-3 text-slate-500 text-xs">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-600 to-indigo-600 flex items-center justify-center text-white shrink-0">
               <Bot className="w-4 h-4" />
             </div>
-            <div className="glass-panel px-4 py-3 rounded-2xl flex items-center space-x-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
-              <span>AutoDS is reasoning over verified evidence...</span>
+            <div className="bg-white border border-slate-200 px-4 py-3 rounded-2xl flex items-center space-x-2 shadow-2xs">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-slate-700 font-medium">AutoDS is reasoning over verified evidence...</span>
             </div>
           </div>
         )}
@@ -205,19 +201,19 @@ export const ChatPage: React.FC = () => {
           e.preventDefault();
           handleSendMessage();
         }}
-        className="shrink-0 flex items-center space-x-3 bg-slate-900/80 border border-slate-800 p-2 rounded-2xl focus-within:border-emerald-500 transition"
+        className="shrink-0 flex items-center space-x-3 bg-white border border-slate-300 p-2 rounded-2xl focus-within:border-emerald-500 shadow-2xs transition"
       >
         <input
           type="text"
           value={inputMessage}
           onChange={(e) => setInputMessage(e.target.value)}
           placeholder="Ask a question about the dataset, models, or request safe SQL data analysis..."
-          className="flex-1 bg-transparent px-3 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none"
+          className="flex-1 bg-transparent px-3 py-2 text-xs text-slate-900 placeholder-slate-400 focus:outline-none"
         />
         <button
           type="submit"
           disabled={!inputMessage.trim() || loading}
-          className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition disabled:opacity-40"
+          className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white transition disabled:opacity-40 shadow-2xs"
         >
           <Send className="w-4 h-4" />
         </button>

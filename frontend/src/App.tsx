@@ -34,7 +34,7 @@ export const App: React.FC = () => {
 
   return (
     <Router>
-      <div className="flex min-h-screen bg-slate-950 text-slate-100 antialiased selection:bg-emerald-500 selection:text-white">
+      <div className="flex min-h-screen bg-slate-50 text-slate-900 antialiased selection:bg-emerald-500 selection:text-white">
         <Sidebar health={health} />
         <div className="flex-1 flex flex-col min-w-0">
           <Navbar />

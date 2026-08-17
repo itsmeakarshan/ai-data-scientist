@@ -1,18 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
-  Database,
   Play,
   ArrowLeft,
   AlertTriangle,
   Terminal,
-  Layers,
-  Hash,
-  HardDrive,
-  Sparkles,
-  Search,
-  CheckCircle2,
-  Table as TableIcon
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Dataset } from '../types';
@@ -66,7 +58,7 @@ export const DatasetDetailPage: React.FC = () => {
   if (loading || !dataset) {
     return (
       <div className="p-8 text-center text-slate-500">
-        <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
         Loading dataset profile...
       </div>
     );
@@ -82,13 +74,13 @@ export const DatasetDetailPage: React.FC = () => {
       {/* Top Breadcrumb & Actions */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-1">
-          <Link to="/datasets" className="inline-flex items-center space-x-1.5 text-xs text-slate-400 hover:text-slate-200">
+          <Link to="/datasets" className="inline-flex items-center space-x-1.5 text-xs text-slate-500 hover:text-slate-800">
             <ArrowLeft className="w-3.5 h-3.5" />
             <span>Back to Datasets</span>
           </Link>
           <div className="flex items-center space-x-3">
-            <h1 className="text-2xl font-extrabold text-slate-100">{dataset.name}</h1>
-            <span className="text-xs font-semibold uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            <h1 className="text-2xl font-extrabold text-slate-900">{dataset.name}</h1>
+            <span className="text-xs font-semibold uppercase px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
               {profile?.inferred_problem_type || 'Classification'}
             </span>
           </div>
@@ -97,7 +89,7 @@ export const DatasetDetailPage: React.FC = () => {
 
         <Link
           to={`/analysis?dataset_id=${dataset.id}`}
-          className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md shadow-emerald-600/20 transition"
+          className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20 transition"
         >
           <Play className="w-3.5 h-3.5 fill-current" />
           <span>Launch Autonomous Pipeline</span>
@@ -106,32 +98,32 @@ export const DatasetDetailPage: React.FC = () => {
 
       {/* Overview Stats Bar */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="glass-panel p-4 rounded-xl space-y-1">
-          <span className="text-slate-400 text-xs">Total Records</span>
-          <p className="text-xl font-bold text-slate-100">{dataset.row_count.toLocaleString()}</p>
+        <div className="glass-panel p-4 rounded-2xl space-y-1">
+          <span className="text-slate-500 text-xs font-medium">Total Records</span>
+          <p className="text-xl font-bold text-slate-900">{dataset.row_count.toLocaleString()}</p>
         </div>
-        <div className="glass-panel p-4 rounded-xl space-y-1">
-          <span className="text-slate-400 text-xs">Total Features</span>
-          <p className="text-xl font-bold text-slate-100">{dataset.col_count}</p>
+        <div className="glass-panel p-4 rounded-2xl space-y-1">
+          <span className="text-slate-500 text-xs font-medium">Total Features</span>
+          <p className="text-xl font-bold text-slate-900">{dataset.col_count}</p>
         </div>
-        <div className="glass-panel p-4 rounded-xl space-y-1">
-          <span className="text-slate-400 text-xs">Missing Cells</span>
-          <p className="text-xl font-bold text-slate-100">{profile?.missingness_report?.total_missing_pct || 0}%</p>
+        <div className="glass-panel p-4 rounded-2xl space-y-1">
+          <span className="text-slate-500 text-xs font-medium">Missing Cells</span>
+          <p className="text-xl font-bold text-slate-900">{profile?.missingness_report?.total_missing_pct || 0}%</p>
         </div>
-        <div className="glass-panel p-4 rounded-xl space-y-1">
-          <span className="text-slate-400 text-xs">Target Column</span>
-          <p className="text-xl font-bold text-emerald-400">{profile?.candidate_targets?.[0] || 'Inferred'}</p>
+        <div className="glass-panel p-4 rounded-2xl space-y-1">
+          <span className="text-slate-500 text-xs font-medium">Target Column</span>
+          <p className="text-xl font-bold text-emerald-700">{profile?.candidate_targets?.[0] || 'Inferred'}</p>
         </div>
       </div>
 
       {/* Quality Alerts */}
       {alerts.length > 0 && (
-        <div className="glass-panel p-6 rounded-2xl space-y-3 border-amber-500/30 bg-amber-500/5">
-          <div className="flex items-center space-x-2 text-amber-400 font-bold text-sm">
-            <AlertTriangle className="w-4 h-4" />
+        <div className="glass-panel p-6 rounded-3xl space-y-3 border-amber-200 bg-amber-50/60 shadow-2xs">
+          <div className="flex items-center space-x-2 text-amber-800 font-bold text-sm">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
             <span>Data Quality & Hygiene Audit ({alerts.length} alerts)</span>
           </div>
-          <div className="divide-y divide-slate-800/80">
+          <div className="divide-y divide-amber-200/60">
             {alerts.map((a, idx) => (
               <div key={idx} className="py-2.5 flex flex-col md:flex-row md:items-center justify-between text-xs gap-2">
                 <div className="space-y-0.5">
@@ -139,17 +131,17 @@ export const DatasetDetailPage: React.FC = () => {
                     <span
                       className={`uppercase font-bold px-1.5 py-0.5 rounded text-[10px] ${
                         a.severity === 'critical'
-                          ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                          : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                          ? 'bg-red-100 text-red-700 border border-red-200'
+                          : 'bg-amber-100 text-amber-800 border border-amber-200'
                       }`}
                     >
                       {a.severity}
                     </span>
-                    <strong className="text-slate-200">{a.column ? `Column '${a.column}'` : 'Dataset-wide'}:</strong>
-                    <span className="text-slate-300">{a.message}</span>
+                    <strong className="text-slate-800">{a.column ? `Column '${a.column}'` : 'Dataset-wide'}:</strong>
+                    <span className="text-slate-700">{a.message}</span>
                   </div>
                 </div>
-                <span className="text-slate-400 font-mono bg-slate-900 px-2 py-1 rounded border border-slate-800 shrink-0">
+                <span className="text-slate-600 font-mono bg-white px-2.5 py-1 rounded-lg border border-amber-200/80 shrink-0">
                   Action: {a.suggested_action}
                 </span>
               </div>
@@ -159,13 +151,13 @@ export const DatasetDetailPage: React.FC = () => {
       )}
 
       {/* Tabs Navigation */}
-      <div className="border-b border-slate-800 flex space-x-6">
+      <div className="border-b border-slate-200 flex space-x-6">
         <button
           onClick={() => setActiveTab('profile')}
           className={`pb-3 text-sm font-semibold border-b-2 transition ${
             activeTab === 'profile'
-              ? 'border-emerald-500 text-emerald-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           Statistical Feature Profile
@@ -174,8 +166,8 @@ export const DatasetDetailPage: React.FC = () => {
           onClick={() => setActiveTab('sample')}
           className={`pb-3 text-sm font-semibold border-b-2 transition ${
             activeTab === 'sample'
-              ? 'border-emerald-500 text-emerald-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           Sample Data Table ({sampleRows.rows.length} rows)
@@ -184,8 +176,8 @@ export const DatasetDetailPage: React.FC = () => {
           onClick={() => setActiveTab('sql')}
           className={`pb-3 text-sm font-semibold border-b-2 transition ${
             activeTab === 'sql'
-              ? 'border-emerald-500 text-emerald-400'
-              : 'border-transparent text-slate-400 hover:text-slate-200'
+              ? 'border-emerald-600 text-emerald-700'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
           }`}
         >
           Safe DuckDB SQL Console
@@ -197,33 +189,33 @@ export const DatasetDetailPage: React.FC = () => {
         <div className="space-y-6">
           {/* Numerical Features */}
           {Object.keys(numCols).length > 0 && (
-            <div className="glass-panel p-6 rounded-2xl space-y-4">
-              <h3 className="font-bold text-base text-slate-100">Numerical Features ({Object.keys(numCols).length})</h3>
+            <div className="glass-panel p-6 rounded-3xl space-y-4">
+              <h3 className="font-bold text-base text-slate-900">Numerical Features ({Object.keys(numCols).length})</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-800 text-slate-400 font-semibold">
+                  <thead className="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold">
                     <tr>
-                      <th className="py-2 px-3">Column</th>
-                      <th className="py-2 px-3">Mean</th>
-                      <th className="py-2 px-3">Std Dev</th>
-                      <th className="py-2 px-3">Min</th>
-                      <th className="py-2 px-3">Median</th>
-                      <th className="py-2 px-3">Max</th>
-                      <th className="py-2 px-3">Skewness</th>
-                      <th className="py-2 px-3">Outliers</th>
+                      <th className="py-2.5 px-3">Column</th>
+                      <th className="py-2.5 px-3">Mean</th>
+                      <th className="py-2.5 px-3">Std Dev</th>
+                      <th className="py-2.5 px-3">Min</th>
+                      <th className="py-2.5 px-3">Median</th>
+                      <th className="py-2.5 px-3">Max</th>
+                      <th className="py-2.5 px-3">Skewness</th>
+                      <th className="py-2.5 px-3">Outliers</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
+                  <tbody className="divide-y divide-slate-100 font-mono text-slate-700">
                     {Object.entries(numCols).map(([col, stats]: [string, any]) => (
-                      <tr key={col} className="hover:bg-slate-800/30">
-                        <td className="py-2.5 px-3 font-semibold font-sans text-slate-100">{col}</td>
+                      <tr key={col} className="hover:bg-slate-50">
+                        <td className="py-2.5 px-3 font-semibold font-sans text-slate-900">{col}</td>
                         <td className="py-2.5 px-3">{stats.mean}</td>
                         <td className="py-2.5 px-3">{stats.std}</td>
                         <td className="py-2.5 px-3">{stats.min}</td>
                         <td className="py-2.5 px-3">{stats.median}</td>
                         <td className="py-2.5 px-3">{stats.max}</td>
                         <td className="py-2.5 px-3">{stats.skewness}</td>
-                        <td className="py-2.5 px-3 text-amber-400">{stats.outlier_count} ({stats.outlier_pct}%)</td>
+                        <td className="py-2.5 px-3 text-amber-700 font-semibold">{stats.outlier_count} ({stats.outlier_pct}%)</td>
                       </tr>
                     ))}
                   </tbody>
@@ -234,27 +226,27 @@ export const DatasetDetailPage: React.FC = () => {
 
           {/* Categorical Features */}
           {Object.keys(catCols).length > 0 && (
-            <div className="glass-panel p-6 rounded-2xl space-y-4">
-              <h3 className="font-bold text-base text-slate-100">Categorical Features ({Object.keys(catCols).length})</h3>
+            <div className="glass-panel p-6 rounded-3xl space-y-4">
+              <h3 className="font-bold text-base text-slate-900">Categorical Features ({Object.keys(catCols).length})</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="border-b border-slate-800 text-slate-400 font-semibold">
+                  <thead className="border-b border-slate-200 bg-slate-50 text-slate-600 font-semibold">
                     <tr>
-                      <th className="py-2 px-3">Column</th>
-                      <th className="py-2 px-3">Unique Values</th>
-                      <th className="py-2 px-3">Top Category</th>
-                      <th className="py-2 px-3">Top Frequency</th>
-                      <th className="py-2 px-3">Distribution Breakdown</th>
+                      <th className="py-2.5 px-3">Column</th>
+                      <th className="py-2.5 px-3">Unique Values</th>
+                      <th className="py-2.5 px-3">Top Category</th>
+                      <th className="py-2.5 px-3">Top Frequency</th>
+                      <th className="py-2.5 px-3">Distribution Breakdown</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
                     {Object.entries(catCols).map(([col, stats]: [string, any]) => (
-                      <tr key={col} className="hover:bg-slate-800/30">
-                        <td className="py-2.5 px-3 font-semibold text-slate-100">{col}</td>
+                      <tr key={col} className="hover:bg-slate-50">
+                        <td className="py-2.5 px-3 font-semibold text-slate-900">{col}</td>
                         <td className="py-2.5 px-3 font-mono">{stats.unique_count}</td>
                         <td className="py-2.5 px-3 font-mono">{stats.top_value}</td>
                         <td className="py-2.5 px-3 font-mono">{stats.top_freq} ({stats.top_freq_pct}%)</td>
-                        <td className="py-2.5 px-3 text-[11px] text-slate-400 truncate max-w-xs">
+                        <td className="py-2.5 px-3 text-[11px] text-slate-500 truncate max-w-xs">
                           {JSON.stringify(stats.top_categories)}
                         </td>
                       </tr>
@@ -269,23 +261,23 @@ export const DatasetDetailPage: React.FC = () => {
 
       {/* Tab 2: Sample Data Table */}
       {activeTab === 'sample' && (
-        <div className="glass-panel p-6 rounded-2xl space-y-4 overflow-hidden">
+        <div className="glass-panel p-6 rounded-3xl space-y-4 overflow-hidden">
           <div className="flex items-center justify-between">
-            <h3 className="font-bold text-base text-slate-100">Preview Top 25 Rows</h3>
-            <span className="text-xs text-slate-400">Total in file: {dataset.row_count.toLocaleString()} rows</span>
+            <h3 className="font-bold text-base text-slate-900">Preview Top 25 Rows</h3>
+            <span className="text-xs text-slate-500">Total in file: {dataset.row_count.toLocaleString()} rows</span>
           </div>
-          <div className="overflow-x-auto max-h-96">
+          <div className="overflow-x-auto max-h-96 border border-slate-200 rounded-2xl">
             <table className="w-full text-left text-xs">
-              <thead className="bg-slate-900 border-b border-slate-800 text-slate-300 sticky top-0 font-semibold">
+              <thead className="bg-slate-100 border-b border-slate-200 text-slate-700 sticky top-0 font-semibold">
                 <tr>
                   {sampleRows.columns.map((col) => (
                     <th key={col} className="py-2.5 px-3 whitespace-nowrap">{col}</th>
                   ))}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 font-mono text-slate-300">
+              <tbody className="divide-y divide-slate-100 font-mono text-slate-700">
                 {sampleRows.rows.map((row, rIdx) => (
-                  <tr key={rIdx} className="hover:bg-slate-800/40">
+                  <tr key={rIdx} className="hover:bg-slate-50">
                     {sampleRows.columns.map((col) => (
                       <td key={col} className="py-2 px-3 whitespace-nowrap">{String(row[col] ?? '')}</td>
                     ))}
@@ -299,21 +291,21 @@ export const DatasetDetailPage: React.FC = () => {
 
       {/* Tab 3: Safe SQL Query Console */}
       {activeTab === 'sql' && (
-        <div className="glass-panel p-6 rounded-2xl space-y-4">
+        <div className="glass-panel p-6 rounded-3xl space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <h3 className="font-bold text-base text-slate-100 flex items-center gap-2">
-                <Terminal className="w-4 h-4 text-emerald-400" />
+              <h3 className="font-bold text-base text-slate-900 flex items-center gap-2">
+                <Terminal className="w-4 h-4 text-emerald-600" />
                 DuckDB Safe SQL Query Engine
               </h3>
-              <p className="text-xs text-slate-400">
-                Table is mapped to <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">dataset</code> and <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">data</code>. Read-only analytical queries.
+              <p className="text-xs text-slate-500">
+                Table is mapped to <code className="text-emerald-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">dataset</code> and <code className="text-emerald-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">data</code>. Read-only analytical queries.
               </p>
             </div>
             <button
               onClick={handleRunSql}
               disabled={queryLoading}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition flex items-center space-x-2"
+              className="px-4 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition flex items-center space-x-2"
             >
               <Play className="w-3.5 h-3.5 fill-current" />
               <span>{queryLoading ? 'Executing...' : 'Execute SQL'}</span>
@@ -324,36 +316,36 @@ export const DatasetDetailPage: React.FC = () => {
             value={sqlQuery}
             onChange={(e) => setSqlQuery(e.target.value)}
             rows={3}
-            className="w-full font-mono text-xs p-3.5 rounded-xl bg-slate-950 border border-slate-700 text-emerald-300 focus:outline-none focus:border-emerald-500"
+            className="w-full font-mono text-xs p-3.5 rounded-2xl bg-slate-50 border border-slate-300 text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition"
             placeholder="SELECT job, COUNT(*) as count FROM dataset GROUP BY job ORDER BY count DESC;"
           />
 
           {queryError && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-xs">
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs">
               {queryError}
             </div>
           )}
 
           {queryResult && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-xs text-slate-400">
+              <div className="flex items-center justify-between text-xs text-slate-500">
                 <span>Returned <strong>{queryResult.row_count}</strong> rows in <strong>{queryResult.execution_time_ms}ms</strong></span>
-                <span className="font-mono text-[10px] text-slate-500">{queryResult.sql_executed}</span>
+                <span className="font-mono text-[10px] text-slate-400">{queryResult.sql_executed}</span>
               </div>
-              <div className="overflow-x-auto max-h-72 rounded-xl border border-slate-800">
+              <div className="overflow-x-auto max-h-72 rounded-2xl border border-slate-200">
                 <table className="w-full text-left text-xs font-mono">
-                  <thead className="bg-slate-900 text-slate-300 border-b border-slate-800">
+                  <thead className="bg-slate-100 text-slate-700 border-b border-slate-200">
                     <tr>
                       {queryResult.columns.map((c: string) => (
-                        <th key={c} className="py-2 px-3">{c}</th>
+                        <th key={c} className="py-2.5 px-3">{c}</th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-800/60 text-slate-300">
+                  <tbody className="divide-y divide-slate-100 text-slate-700">
                     {queryResult.rows.map((row: any, i: number) => (
-                      <tr key={i} className="hover:bg-slate-800/30">
+                      <tr key={i} className="hover:bg-slate-50">
                         {queryResult.columns.map((c: string) => (
-                          <td key={c} className="py-1.5 px-3">{String(row[c] ?? '')}</td>
+                          <td key={c} className="py-2 px-3">{String(row[c] ?? '')}</td>
                         ))}
                       </tr>
                     ))}

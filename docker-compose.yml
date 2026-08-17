@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: autods_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-autods_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-autods_secure_password}
+      POSTGRES_DB: ${POSTGRES_DB:-autods}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-autods_user} -d ${POSTGRES_DB:-autods}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mlflow:
+    image: python:3.11-slim
+    container_name: autods_mlflow
+    restart: unless-stopped
+    command: >
+      sh -c "pip install --no-cache-dir mlflow>=2.11.0 psycopg2-binary &&
+             mlflow server
+             --backend-store-uri sqlite:////mlruns/mlflow.db
+             --default-artifact-root /mlruns/artifacts
+             --host 0.0.0.0
+             --port 5000"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlruns
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: autods_backend
+    restart: unless-stopped
+    environment:
+      ENVIRONMENT: production
+      LOG_LEVEL: INFO
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-autods_user}:${POSTGRES_PASSWORD:-autods_secure_password}@postgres:5432/${POSTGRES_DB:-autods}
+      DATABASE_SYNC_URL: postgresql://${POSTGRES_USER:-autods_user}:${POSTGRES_PASSWORD:-autods_secure_password}@postgres:5432/${POSTGRES_DB:-autods}
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      BACKEND_CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173","http://localhost:8000"]'
+    ports:
+      - "8000:8000"
+    volumes:
+      - shared_data:/app/data
+      - shared_reports:/app/reports
+      - shared_experiments:/app/experiments
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: autods_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  mlflow_data:
+  shared_data:
+  shared_reports:
+  shared_experiments:

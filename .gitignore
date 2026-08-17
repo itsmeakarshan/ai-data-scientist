@@ -1,0 +1,88 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# Data & Models (Keep READMEs, ignore raw/processed binary data)
+data/raw/*
+!data/raw/README.md
+data/processed/*
+!data/processed/README.md
+data/interim/*
+!data/interim/README.md
+data/external/*
+!data/external/README.md
+reports/artifacts/*
+!reports/artifacts/README.md
+
+# MLflow & Experiment Tracking
+mlruns/
+.mlflow/
+mlartifacts/
+experiments/artifacts/*
+!experiments/artifacts/README.md
+
+# Databases & SQLite
+*.db
+*.sqlite
+*.sqlite3
+postgres-data/
+
+# Logs & Temp
+logs/
+*.log
+scratch/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

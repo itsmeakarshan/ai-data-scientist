@@ -200,35 +200,60 @@ def run_autonomous_datascience_pipeline(
         champion_exp = initial_best
         if critic_result.get("requires_iteration") and "REMOVE_LEAKY_FEATURES" in critic_result.get("remediation_actions", []):
             state.current_step = "CRITIC_ITERATION"
-            state.log("Critic detected domain leakage ('duration'). Retraining corrected leak-free model suite...")
             
-            # Retrain with 'duration' purged
+            # Extract all leaky features dynamically from critic findings
+            leaky_features_to_drop = []
+            for f in critic_result.get("findings", []):
+                if f.get("issue_type") in ("domain_target_leakage", "potential_target_leakage", "leaky_feature"):
+                    leaky_features_to_drop.extend(f.get("affected_components", []))
+            leaky_features_to_drop = list(set(leaky_features_to_drop))
+            
+            state.log(f"Critic detected prospective data leakage in features: {leaky_features_to_drop}. Retraining corrected leak-free model suite...")
+            
+            # Retrain with leaky features purged
             X_tr_c, X_te_c, y_tr_c, y_te_c, prep_art_c = prepare_train_test_split(
                 df=df_raw,
                 target_column=state.target_column,
                 problem_type=state.problem_type,
                 time_column=state.time_column,
-                drop_leakage_cols=["duration"]
+                drop_leakage_cols=leaky_features_to_drop
             )
             
-            corrected_exp = train_and_evaluate_model(
-                model_name=f"{initial_best['model_name']}_LeakFree",
-                problem_type=state.problem_type,
-                X_train=X_tr_c,
-                y_train=y_tr_c,
-                X_test=X_te_c,
-                y_test=y_te_c,
-                feature_names=prep_art_c.feature_names,
-                cv_folds=3
-            )
-            
-            state.experiments.append(corrected_exp)
-            champion_exp = corrected_exp
-            state.best_experiment = corrected_exp
-            models_trained[champion_exp["model_name"]] = corrected_exp
+            # Retrain candidate models without leaky features
+            leak_free_exps = []
+            for m_name in candidate_models:
+                lf_name = f"{m_name}_LeakFree"
+                lf_exp = train_and_evaluate_model(
+                    model_name=lf_name,
+                    problem_type=state.problem_type,
+                    X_train=X_tr_c,
+                    y_train=y_tr_c,
+                    X_test=X_te_c,
+                    y_test=y_te_c,
+                    feature_names=prep_art_c.feature_names,
+                    cv_folds=3
+                )
+                state.experiments.append(lf_exp)
+                leak_free_exps.append(lf_exp)
+                models_trained[lf_name] = lf_exp
+
+            if state.problem_type == "classification":
+                sorted_lf = sorted(
+                    leak_free_exps,
+                    key=lambda x: x["metrics"]["test"].get("roc_auc", x["metrics"]["test"].get("accuracy", 0.0)),
+                    reverse=True
+                )
+            else:
+                sorted_lf = sorted(
+                    leak_free_exps,
+                    key=lambda x: x["metrics"]["test"].get("rmse", 999999.0)
+                )
+
+            champion_exp = sorted_lf[0]
+            state.best_experiment = champion_exp
             prep_artifacts = prep_art_c
             X_train, X_test, y_train, y_test = X_tr_c, X_te_c, y_tr_c, y_te_c
-            state.log(f"Corrected model trained: {champion_exp['model_name']} (Test ROC-AUC: {champion_exp['metrics']['test'].get('roc_auc')})")
+            state.log(f"Corrected leak-free champion selected: {champion_exp['model_name']} (Test Metric: {champion_exp['metrics']['test']})")
 
         # Step 9: Explainability & Feature Importance
         state.current_step = "EXPLAINABILITY"

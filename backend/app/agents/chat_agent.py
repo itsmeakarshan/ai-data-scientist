@@ -54,15 +54,45 @@ def answer_chat_query(
                 }
                 context_data["top_features"] = champion.feature_importance_json.get("rankings", [])[:8]
 
-    # Check if user asked a direct statistical/aggregation query on the data
+    # Check if user passed direct SQL or asked a direct statistical/aggregation query on the data
     msg_lower = user_message.lower()
-    is_data_query = any(k in msg_lower for k in ("how many", "what percentage", "average", "mean", "count of", "distribution of", "highest", "lowest", "select", "sql"))
     
+    # 1. Reject destructive SQL attempts immediately
+    destructive_keywords = ("drop table", "delete from", "update ", "insert into", "truncate ", "alter table", "attach ", "copy ")
+    if any(k in msg_lower for k in destructive_keywords):
+        return {
+            "reply": "⚠️ **Security Notice:** Disallowed SQL operation detected. AutoDS strictly blocks destructive or modifying statements (`DROP`, `DELETE`, `UPDATE`, `INSERT`, `ATTACH`, `TRUNCATE`). Only read-only analytical `SELECT` queries are permitted in the sandboxed environment.",
+            "tool_calls": {"tool_name": "security_guard", "blocked": True},
+            "tool_results": None,
+        }
+
+    # 2. Direct Custom SQL Execution
+    if (msg_lower.startswith("select ") or msg_lower.startswith("with ")) and dataset and dataset.file_path:
+        try:
+            sql_res = execute_safe_sql_query(dataset.file_path, user_message)
+            tool_calls = {"tool_name": "execute_safe_sql_query", "query": user_message}
+            tool_results = sql_res
+            row_summary = f"Executed in {sql_res['execution_time_ms']}ms. Returned {sql_res['row_count']} rows:\n\n"
+            if sql_res["rows"]:
+                import json
+                row_summary += f"```json\n{json.dumps(sql_res['rows'][:10], indent=2, default=str)}\n```"
+            return {
+                "reply": f"**Analytical SQL Execution Result:**\n\n{row_summary}",
+                "tool_calls": tool_calls,
+                "tool_results": tool_results,
+            }
+        except Exception as e:
+            return {
+                "reply": f"**SQL Query Error:** {str(e)}",
+                "tool_calls": {"tool_name": "execute_safe_sql_query", "error": str(e)},
+                "tool_results": None,
+            }
+
+    # 3. Natural language query intent -> Auto-SQL generation
+    is_data_query = any(k in msg_lower for k in ("how many", "what percentage", "average", "mean", "count of", "distribution of", "highest", "lowest", "total rows"))
     if is_data_query and dataset and dataset.file_path:
-        # Heuristic SQL generator for common query intents
         sql_candidate = None
-        if "how many" in msg_lower or "count" in msg_lower:
-            # Check for column filter in message
+        if "how many" in msg_lower or "count" in msg_lower or "total rows" in msg_lower:
             matched_col = None
             for col in (dataset.profile.column_types.keys() if dataset.profile else []):
                 if col.lower() in msg_lower:

@@ -68,28 +68,32 @@ def critique_experiment(
             remediation_actions.append("REGULARIZE_MODEL")
 
     # 2. Audit Potential Data / Target Leakage
-    # Check for Bank Marketing 'duration' column
-    if raw_columns and "duration" in raw_columns and (target_column in ("y", "deposit") or not target_column):
-        duration_in_features = any("duration" in str(f).lower() for f in feature_names)
-        if duration_in_features:
-            findings.append({
-                "issue_type": "domain_target_leakage",
-                "severity": "critical",
-                "description": "Feature 'duration' (call length) was included in training. Duration is unknown before a telemarketing call is made, creating realistic deployment leakage.",
-                "affected_components": ["duration"],
-                "remediation": "Drop 'duration' feature and retrain model to obtain honest prospective performance."
-            })
-            requires_iteration = True
-            remediation_actions.append("REMOVE_LEAKY_FEATURES")
+    # Check for known prospective domain leakage variables (e.g. call duration in telemarketing, post-event metrics)
+    prospective_leakage_indicators = ["duration", "post_event", "post_call", "after_outcome", "future_val"]
+    if raw_columns:
+        for col in raw_columns:
+            col_lower = col.lower()
+            if any(ind in col_lower for ind in prospective_leakage_indicators):
+                in_features = any(col_lower == str(f).lower() or col_lower in str(f).lower() for f in feature_names)
+                if in_features:
+                    findings.append({
+                        "issue_type": "domain_target_leakage",
+                        "severity": "critical",
+                        "description": f"Feature '{col}' represents prospective/post-event information unknown at prediction time, creating deployment-time data leakage.",
+                        "affected_components": [col],
+                        "remediation": f"Drop '{col}' feature and retrain model suite to obtain honest prospective performance."
+                    })
+                    requires_iteration = True
+                    remediation_actions.append("REMOVE_LEAKY_FEATURES")
 
-    # Check suspiciously high test score
+    # Check suspiciously high test score indicative of target proxy
     if problem_type == "classification" and test_metrics.get("roc_auc", 0.0) >= 0.995:
         findings.append({
             "issue_type": "suspicious_performance",
             "severity": "warning",
-            "description": f"ROC-AUC is {test_metrics.get('roc_auc'):.4f}, which is unusually high for real-world tabular data. Check for indirect target proxies.",
+            "description": f"ROC-AUC is {test_metrics.get('roc_auc'):.4f}, which is unusually high for real-world tabular data. Check for indirect target proxies or ID duplicates.",
             "affected_components": [model_name],
-            "remediation": "Inspect top SHAP features for near-perfect target correlation or duplicate IDs."
+            "remediation": "Audit individual feature correlations and inspect SHAP distributions for proxy identifiers."
         })
 
     # 3. Audit Validation Strategy

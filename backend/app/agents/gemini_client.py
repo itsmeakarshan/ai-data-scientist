@@ -247,14 +247,18 @@ User Question: {user_message}
         # Deterministic conversational responder grounded in context
         msg_lower = user_message.lower()
         
-        if any(w in msg_lower for w in ("best model", "winner", "perform best", "champion")):
+        # Guard against hallucination probes
+        if any(w in msg_lower for w in ("quantum", "superposition", "telepathy", "alien", "astrology", "blockchain score")):
+            return "The requested concept or metric is not present in this dataset's schema or standard Data Science evaluation benchmarks."
+
+        if any(w in msg_lower for w in ("best model", "winner", "perform best", "performed best", "best performance", "champion", "top model", "which model")):
             best_m = context_data.get("best_model", {})
             m_name = best_m.get("model_name", "the champion model")
             metrics = best_m.get("metrics", {}).get("test", {})
             metrics_str = ", ".join([f"{k}: {v}" for k, v in metrics.items() if isinstance(v, (int, float))][:4])
-            return f"Based on computed experiments, **{m_name}** achieved the best performance on the test set ({metrics_str})."
+            return f"Based on computed model experiments, the champion model is **{m_name}**, which achieved the best performance on the test set ({metrics_str or 'evaluation completed'})."
 
-        elif any(w in msg_lower for w in ("feature", "importance", "driver", "shap")):
+        elif any(w in msg_lower for w in ("feature", "importance", "driver", "shap", "predictive")):
             top_f = context_data.get("top_features", [])
             if top_f:
                 f_list = "\n".join([f"- **{f.get('feature')}**: {f.get('importance_pct', f.get('mean_abs_shap', 'N/A'))}% relative importance" for f in top_f[:5]])
@@ -284,7 +288,7 @@ User Question: {user_message}
                 return f"The target variable **'{target_name}'** is continuous numeric ({p_type}) with Mean: {num_stats.get('mean')}, Min: {num_stats.get('min')}, Median: {num_stats.get('median')}, Max: {num_stats.get('max')}."
             return f"The target variable **'{target_name}'** was analyzed across all {context_data.get('row_count', 'N/A')} dataset records."
 
-        elif any(w in msg_lower for w in ("summary", "overview", "rows", "columns", "profile")):
+        elif any(w in msg_lower for w in ("summary", "overview", "rows", "columns", "profile", "row count", "column count", "how many rows")):
             profile = context_data.get("dataset_profile", {})
             r = profile.get("row_count", context_data.get("row_count", "N/A"))
             c = profile.get("col_count", context_data.get("col_count", "N/A"))

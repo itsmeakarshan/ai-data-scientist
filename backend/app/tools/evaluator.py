@@ -64,7 +64,7 @@ def evaluate_classification(
                 roc_auc = float(roc_auc_score(y_true, p_positive))
                 pr_auc = float(average_precision_score(y_true, p_positive))
                 brier = float(brier_score_loss(y_true, p_positive))
-                ll = float(log_loss(y_true, p_positive, eps=1e-7))
+                ll = float(log_loss(y_true, p_positive))
 
                 metrics["roc_auc"] = round(roc_auc, 4)
                 metrics["pr_auc"] = round(pr_auc, 4)

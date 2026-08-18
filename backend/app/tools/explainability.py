@@ -55,6 +55,41 @@ def calculate_feature_importance(
     }
 
 
+def _extract_mean_abs_shap(shap_values: Any) -> np.ndarray:
+    """
+    Extract a 1D mean absolute SHAP importance array from arbitrary SHAP outputs:
+    - Explanation object (.values)
+    - 2D ndarray (N, F) -> regression or binary log-odds
+    - 3D ndarray (N, F, C) -> multiclass or binary class probabilities
+    - list of ndarrays [ (N, F), ... ] -> binary or multiclass
+    """
+    vals = shap_values.values if hasattr(shap_values, "values") else shap_values
+
+    if isinstance(vals, list):
+        if len(vals) == 2:
+            # Binary classification: positive class attribution
+            sv = vals[1]
+            return np.mean(np.abs(sv), axis=0)
+        elif len(vals) > 0:
+            # Multiclass: mean across classes
+            return np.mean([np.mean(np.abs(v), axis=0) for v in vals], axis=0)
+        return np.zeros(1)
+
+    if isinstance(vals, np.ndarray):
+        if vals.ndim == 3:
+            # (N, F, C): average absolute attribution across samples and classes
+            if vals.shape[2] == 2:
+                # Binary: positive class index 1
+                return np.mean(np.abs(vals[:, :, 1]), axis=0)
+            return np.mean(np.abs(vals), axis=(0, 2))
+        elif vals.ndim == 2:
+            return np.mean(np.abs(vals), axis=0)
+        elif vals.ndim == 1:
+            return np.abs(vals)
+
+    return np.zeros(1)
+
+
 def compute_shap_explanations(
     model: Any,
     X_sample: np.ndarray,
@@ -63,7 +98,7 @@ def compute_shap_explanations(
     top_n: int = 15
 ) -> Dict[str, Any]:
     """
-    Compute real SHAP values for global and local interpretability.
+    Compute genuine SHAP values for global and local interpretability using modern Explanation API.
     """
     if len(X_sample) > max_samples:
         indices = np.random.choice(len(X_sample), max_samples, replace=False)
@@ -73,26 +108,21 @@ def compute_shap_explanations(
 
     try:
         # Use TreeExplainer for tree ensembles
-        if hasattr(model, "estimators_") or hasattr(model, "booster_") or hasattr(model, "get_booster"):
+        if hasattr(model, "estimators_") or hasattr(model, "booster_") or hasattr(model, "get_booster") or hasattr(model, "_Booster"):
             explainer = shap.TreeExplainer(model)
-            shap_values = explainer.shap_values(X_sub)
+            try:
+                # Official modern SHAP Explanation API
+                shap_obj = explainer(X_sub)
+                mean_abs_shap = _extract_mean_abs_shap(shap_obj)
+            except Exception:
+                shap_vals = explainer.shap_values(X_sub)
+                mean_abs_shap = _extract_mean_abs_shap(shap_vals)
         else:
             # Linear / General Explainer
             explainer = shap.Explainer(model, X_sub)
-            shap_values = explainer(X_sub).values
+            shap_obj = explainer(X_sub)
+            mean_abs_shap = _extract_mean_abs_shap(shap_obj)
 
-        # Handle binary classification list of shap values
-        if isinstance(shap_values, list):
-            sv = shap_values[1] if len(shap_values) > 1 else shap_values[0]
-        elif hasattr(shap_values, "values"):
-            sv = shap_values.values
-        else:
-            sv = shap_values
-
-        if sv.ndim == 3:
-            sv = sv[:, :, 1]  # positive class for binary
-
-        mean_abs_shap = np.mean(np.abs(sv), axis=0)
         shap_summary = []
         for i, name in enumerate(feature_names):
             if i < len(mean_abs_shap):

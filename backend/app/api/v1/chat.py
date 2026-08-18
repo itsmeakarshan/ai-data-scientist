@@ -2,19 +2,20 @@
 AutoDS Conversational Agent API Endpoints
 """
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from backend.app.agents.chat_agent import answer_chat_query
 from backend.app.core.database import SyncSessionLocal, get_db
-from backend.app.models.entities import AnalysisRun, ChatMessage, ChatSession, Dataset
+from backend.app.models.entities import AnalysisRun, ChatMessage, ChatSession, Dataset, Report
 from backend.app.schemas.domain import (
     ChatMessageCreate,
     ChatMessageResponse,
     ChatSessionResponse,
 )
+from backend.app.services.analysis_context_builder import AnalysisContextBuilder
 
 
 router = APIRouter(prefix="/agent", tags=["Agent"])
@@ -55,7 +56,16 @@ async def chat_with_agent(
     try:
         ds_id = req.dataset_id or session.dataset_id
         dataset_obj = sync_db.query(Dataset).filter(Dataset.id == ds_id).first() if ds_id else None
-        latest_run = sync_db.query(AnalysisRun).filter(AnalysisRun.dataset_id == ds_id).order_by(AnalysisRun.created_at.desc()).first() if ds_id else None
+        
+        target_analysis_id = req.analysis_id
+        if not target_analysis_id and req.report_id:
+            rep = sync_db.query(Report).filter(Report.id == req.report_id).first()
+            if rep:
+                target_analysis_id = rep.analysis_id
+
+        latest_run = sync_db.query(AnalysisRun).filter(AnalysisRun.id == target_analysis_id).first() if target_analysis_id else (
+            sync_db.query(AnalysisRun).filter(AnalysisRun.dataset_id == ds_id).order_by(AnalysisRun.created_at.desc()).first() if ds_id else None
+        )
         
         # Recent history
         hist_msgs = sync_db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at.desc()).limit(6).all()
@@ -66,7 +76,11 @@ async def chat_with_agent(
             dataset=dataset_obj,
             latest_run=latest_run,
             session_history=formatted_history,
-            sync_db_session=sync_db
+            sync_db_session=sync_db,
+            analysis_id=target_analysis_id,
+            report_id=req.report_id,
+            dataset_id=ds_id,
+            comparison_analysis_id=req.comparison_analysis_id
         )
     finally:
         sync_db.close()
@@ -84,6 +98,28 @@ async def chat_with_agent(
     await db.refresh(assistant_msg)
 
     return assistant_msg
+
+
+@router.get("/context")
+async def get_agent_context(
+    analysis_id: Optional[str] = Query(None),
+    report_id: Optional[str] = Query(None),
+    dataset_id: Optional[str] = Query(None),
+    comparison_analysis_id: Optional[str] = Query(None)
+) -> Dict[str, Any]:
+    """Retrieve the unified structured analysis context currently available to the agent."""
+    sync_db = SyncSessionLocal()
+    try:
+        context = AnalysisContextBuilder.build_context(
+            sync_db=sync_db,
+            analysis_id=analysis_id,
+            report_id=report_id,
+            dataset_id=dataset_id,
+            comparison_analysis_id=comparison_analysis_id
+        )
+        return context
+    finally:
+        sync_db.close()
 
 
 @router.get("/sessions", response_model=List[ChatSessionResponse])

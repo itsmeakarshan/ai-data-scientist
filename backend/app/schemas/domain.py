@@ -129,6 +129,51 @@ class AnalysisRunResponse(BaseSchema):
     completed_at: Optional[datetime]
 
 
+class AnalysisStatusResponse(BaseSchema):
+    analysis_id: str
+    status: str
+    current_stage: int
+    current_stage_name: str
+    completed_stages: List[int]
+    total_stages: int = 9
+    progress_percent: int
+    elapsed_seconds: int
+    models_evaluated: List[str] = Field(default_factory=list)
+    current_model: Optional[str] = None
+    stage_details: Optional[str] = None
+    error: Optional[str] = None
+
+
+class WorkflowStageItemResponse(BaseSchema):
+    number: int
+    name: str
+    description: str
+    status: str  # WAITING, RUNNING, COMPLETED, FAILED
+    started_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    duration_seconds: Optional[float] = None
+
+
+class WorkflowProgressResponse(BaseSchema):
+    analysis_id: str
+    status: str  # RUNNING, COMPLETED, FAILED, READY, CANCELLED
+    overall_status: str
+    current_stage: str
+    current_stage_number: int
+    total_stages: int = 9
+    completed_stages: int
+    progress_percentage: float
+    progress_percent: float
+    stage_status: str
+    stage_started_at: Optional[str] = None
+    stage_completed_at: Optional[str] = None
+    elapsed_seconds: int
+    error_message: Optional[str] = None
+    error: Optional[str] = None
+    stages: List[WorkflowStageItemResponse]
+
+
+
 # ==========================================
 # Experiment & Metrics Schemas
 # ==========================================
@@ -180,6 +225,11 @@ class ModelRecordResponse(BaseSchema):
     shap_summary_json: Dict[str, Any]
     metrics_json: Dict[str, Any]
     created_at: datetime
+    dataset_name: Optional[str] = None
+    dataset_id: Optional[str] = None
+    analysis_id: Optional[str] = None
+    metric_name: Optional[str] = None
+    normalized_score: Optional[float] = None
 
 
 # ==========================================
@@ -228,6 +278,9 @@ class QueryResponse(BaseSchema):
 class ChatMessageCreate(BaseSchema):
     session_id: Optional[str] = None
     dataset_id: Optional[str] = None
+    analysis_id: Optional[str] = None
+    report_id: Optional[str] = None
+    comparison_analysis_id: Optional[str] = None
     content: str
 
 
@@ -263,3 +316,5 @@ class HealthStatusResponse(BaseSchema):
     mlflow_tracking_active: bool
     datasets_count: int
     experiments_count: int
+
+

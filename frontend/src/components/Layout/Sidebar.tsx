@@ -4,11 +4,8 @@ import {
   LayoutDashboard,
   Database,
   PlayCircle,
-  FlaskConical,
-  Boxes,
   FileText,
   MessageSquare,
-  Settings as SettingsIcon,
   Sparkles,
   ShieldCheck
 } from 'lucide-react';
@@ -23,11 +20,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ health }) => {
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { to: '/datasets', label: 'Datasets', icon: Database },
     { to: '/analysis', label: 'Autonomous DS', icon: PlayCircle },
-    { to: '/experiments', label: 'Experiments', icon: FlaskConical },
-    { to: '/models', label: 'Model Registry', icon: Boxes },
     { to: '/reports', label: 'Reports', icon: FileText },
     { to: '/chat', label: 'Agent Chat', icon: MessageSquare },
-    { to: '/settings', label: 'Settings', icon: SettingsIcon },
   ];
 
   return (

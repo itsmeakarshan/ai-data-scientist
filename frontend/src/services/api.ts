@@ -1,5 +1,6 @@
 import {
   AnalysisRun,
+  AnalysisStatus,
   ChatMessage,
   ChatSession,
   Dataset,
@@ -7,6 +8,7 @@ import {
   HealthStatus,
   ModelRecord,
   Report,
+  WorkflowProgressResponse,
 } from '../types';
 
 const API_BASE = '/api';
@@ -45,6 +47,10 @@ export const api = {
       body: formData,
     });
   },
+  deleteDataset: (id: string) =>
+    fetchJson<{ message: string; id: string }>(`${API_BASE}/datasets/${id}`, {
+      method: 'DELETE',
+    }),
 
   // Analysis
   createAnalysis: (payload: {
@@ -61,6 +67,8 @@ export const api = {
     }),
   getAnalysisRuns: () => fetchJson<AnalysisRun[]>(`${API_BASE}/analysis`),
   getAnalysis: (id: string) => fetchJson<AnalysisRun>(`${API_BASE}/analysis/${id}`),
+  getAnalysisStatus: (id: string) => fetchJson<AnalysisStatus>(`${API_BASE}/analysis/${id}/status`),
+  getAnalysisProgress: (id: string) => fetchJson<WorkflowProgressResponse>(`${API_BASE}/analysis/${id}/progress`),
 
   // Experiments
   getExperiments: (params?: { analysis_id?: string; dataset_id?: string }) => {
@@ -79,10 +87,11 @@ export const api = {
     }>(`${API_BASE}/experiments/compare/${analysisId}`),
 
   // Models
-  getModels: (params?: { is_best?: boolean; task_type?: string }) => {
+  getModels: (params?: { is_best?: boolean; task_type?: string; latest_per_dataset?: boolean }) => {
     const query = new URLSearchParams();
     if (params?.is_best !== undefined) query.append('is_best', String(params.is_best));
     if (params?.task_type) query.append('task_type', params.task_type);
+    if (params?.latest_per_dataset !== undefined) query.append('latest_per_dataset', String(params.latest_per_dataset));
     return fetchJson<ModelRecord[]>(`${API_BASE}/models?${query.toString()}`);
   },
   getModel: (id: string) => fetchJson<ModelRecord>(`${API_BASE}/models/${id}`),
@@ -90,14 +99,38 @@ export const api = {
   // Reports
   getReports: () => fetchJson<Report[]>(`${API_BASE}/reports`),
   getReport: (idOrAnalysisId: string) => fetchJson<Report>(`${API_BASE}/reports/${idOrAnalysisId}`),
+  deleteReport: (id: string) =>
+    fetchJson<{ message: string }>(`${API_BASE}/reports/${id}`, {
+      method: 'DELETE',
+    }),
 
   // Agent Chat
-  sendChatMessage: (payload: { session_id?: string; dataset_id?: string; content: string }) =>
+  sendChatMessage: (payload: {
+    session_id?: string;
+    dataset_id?: string;
+    analysis_id?: string;
+    report_id?: string;
+    comparison_analysis_id?: string;
+    content: string;
+  }) =>
     fetchJson<ChatMessage>(`${API_BASE}/agent/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }),
+  getAgentContext: (params?: {
+    analysis_id?: string;
+    report_id?: string;
+    dataset_id?: string;
+    comparison_analysis_id?: string;
+  }) => {
+    const query = new URLSearchParams();
+    if (params?.analysis_id) query.append('analysis_id', params.analysis_id);
+    if (params?.report_id) query.append('report_id', params.report_id);
+    if (params?.dataset_id) query.append('dataset_id', params.dataset_id);
+    if (params?.comparison_analysis_id) query.append('comparison_analysis_id', params.comparison_analysis_id);
+    return fetchJson<Record<string, any>>(`${API_BASE}/agent/context?${query.toString()}`);
+  },
   getChatSessions: () => fetchJson<ChatSession[]>(`${API_BASE}/agent/sessions`),
   getChatSession: (id: string) => fetchJson<ChatSession>(`${API_BASE}/agent/sessions/${id}`),
 
@@ -115,3 +148,4 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 };
+

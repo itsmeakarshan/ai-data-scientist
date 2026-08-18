@@ -9,22 +9,43 @@ import pandas as pd
 from backend.app.core.logging import logger
 
 
+import re
+
+
 def is_candidate_datetime(series: pd.Series) -> bool:
-    """Check if a series is datetime or parsable as datetime strings without crashing."""
+    """Check if a series is datetime or parsable as datetime strings without triggering unhandled warnings."""
     if pd.api.types.is_datetime64_any_dtype(series):
         return True
-    if series.dtype == object or pd.api.types.is_string_dtype(series):
-        sample = series.dropna().head(30)
-        if len(sample) == 0:
-            return False
-        # Quick heuristic on common date formats
-        try:
-            converted = pd.to_datetime(sample, errors="coerce")
-            if converted.notna().sum() / len(sample) >= 0.8:
-                return True
-        except Exception:
-            return False
-    return False
+    if not (series.dtype == object or pd.api.types.is_string_dtype(series)):
+        return False
+        
+    sample = series.dropna().head(30)
+    if len(sample) == 0:
+        return False
+
+    # Regex patterns for common genuine date/time strings
+    date_patterns = [
+        re.compile(r'^\d{4}[-/.]\d{1,2}[-/.]\d{1,2}'),        # YYYY-MM-DD, YYYY/MM/DD
+        re.compile(r'^\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}'),       # MM/DD/YYYY, DD-MM-YYYY
+        re.compile(r'^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}'),      # ISO datetime: 2023-01-01 12:00
+        re.compile(r'^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2}', re.IGNORECASE), # Month name format
+    ]
+    
+    # Check what proportion of samples match standard date patterns
+    match_count = sum(
+        1 for val in sample
+        if isinstance(val, str) and any(p.match(val.strip()) for p in date_patterns)
+    )
+    
+    # If fewer than 70% of non-null samples match date syntax, reject immediately
+    if match_count / len(sample) < 0.7:
+        return False
+
+    try:
+        converted = pd.to_datetime(sample, errors="coerce", format="mixed")
+        return (converted.notna().sum() / len(sample)) >= 0.8
+    except Exception:
+        return False
 
 
 def profile_dataset(df: pd.DataFrame) -> Dict[str, Any]:
@@ -99,7 +120,7 @@ def profile_dataset(df: pd.DataFrame) -> Dict[str, Any]:
             column_types[col] = "datetime"
             candidate_datetimes.append(col)
             try:
-                dt_series = pd.to_datetime(series, errors="coerce")
+                dt_series = pd.to_datetime(series, errors="coerce", format="mixed")
                 min_dt = dt_series.min()
                 max_dt = dt_series.max()
                 datetime_stats[col] = {

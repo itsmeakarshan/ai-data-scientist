@@ -1,20 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Play,
   ArrowLeft,
   AlertTriangle,
   Terminal,
+  Trash2,
 } from 'lucide-react';
 import { api } from '../services/api';
 import { Dataset } from '../types';
 
 export const DatasetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [dataset, setDataset] = useState<Dataset | null>(null);
   const [sampleRows, setSampleRows] = useState<{ columns: string[]; rows: any[] }>({ columns: [], rows: [] });
   const [activeTab, setActiveTab] = useState<'profile' | 'sample' | 'sql'>('profile');
   const [loading, setLoading] = useState(true);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // SQL Console State
   const [sqlQuery, setSqlQuery] = useState('SELECT * FROM dataset LIMIT 10;');
@@ -55,6 +59,20 @@ export const DatasetDetailPage: React.FC = () => {
     }
   };
 
+  const confirmDelete = async () => {
+    if (!dataset) return;
+    setIsDeleting(true);
+    try {
+      await api.deleteDataset(dataset.id);
+      navigate('/datasets');
+    } catch (err: any) {
+      console.error('Failed to delete dataset:', err);
+      alert(err.message || 'Failed to delete dataset.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   if (loading || !dataset) {
     return (
       <div className="p-8 text-center text-slate-500">
@@ -70,7 +88,7 @@ export const DatasetDetailPage: React.FC = () => {
   const alerts = profile?.quality_alerts || [];
 
   return (
-    <div className="space-y-8 p-8 max-w-7xl mx-auto">
+    <div className="space-y-8 p-8 w-full">
       {/* Top Breadcrumb & Actions */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-1">
@@ -87,13 +105,24 @@ export const DatasetDetailPage: React.FC = () => {
           <p className="text-xs font-mono text-slate-500">SHA-256: {dataset.checksum}</p>
         </div>
 
-        <Link
-          to={`/analysis?dataset_id=${dataset.id}`}
-          className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20 transition"
-        >
-          <Play className="w-3.5 h-3.5 fill-current" />
-          <span>Launch Autonomous Pipeline</span>
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(true)}
+            className="inline-flex items-center space-x-1.5 px-4 py-2.5 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200/80 shadow-2xs transition cursor-pointer"
+          >
+            <Trash2 className="w-4 h-4 text-rose-600" />
+            <span>Delete Dataset</span>
+          </button>
+
+          <Link
+            to={`/analysis?dataset_id=${dataset.id}`}
+            className="inline-flex items-center space-x-2 px-5 py-2.5 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-600/20 transition"
+          >
+            <Play className="w-3.5 h-3.5 fill-current" />
+            <span>Launch Autonomous Pipeline</span>
+          </Link>
+        </div>
       </div>
 
       {/* Overview Stats Bar */}
@@ -354,6 +383,64 @@ export const DatasetDetailPage: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setShowDeleteModal(false)}
+        >
+          <div
+            className="bg-white rounded-3xl p-6 max-w-md w-full space-y-5 shadow-2xl border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-rose-600" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-lg">Delete Dataset?</h3>
+                <p className="text-xs text-slate-500">This action cannot be undone.</p>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 text-xs space-y-1.5">
+              <span className="text-[10px] font-extrabold uppercase text-slate-400 block">Dataset Name</span>
+              <p className="font-bold text-slate-900 leading-snug break-words">{dataset.name}</p>
+              <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-500 font-mono pt-1">
+                <span>Rows: {dataset.row_count.toLocaleString()}</span>
+                <span>Cols: {dataset.col_count}</span>
+                <span>Size: {(dataset.size_bytes / (1024 * 1024)).toFixed(2)} MB</span>
+                <span>Type: {dataset.file_type.toUpperCase()}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Are you sure you want to delete this dataset? This will completely remove the dataset, its statistical profiles, and all associated metadata from the database.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                disabled={isDeleting}
+                className="px-4 py-2.5 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={isDeleting}
+                className="px-5 py-2.5 rounded-xl text-xs font-extrabold bg-rose-600 hover:bg-rose-700 text-white shadow-md shadow-rose-600/20 transition cursor-pointer disabled:opacity-50 inline-flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{isDeleting ? 'Deleting...' : 'Yes, Delete Dataset'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

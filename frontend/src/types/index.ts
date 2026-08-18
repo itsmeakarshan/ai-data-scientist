@@ -76,6 +76,21 @@ export interface AnalysisRun {
   completed_at?: string;
 }
 
+export interface AnalysisStatus {
+  analysis_id: string;
+  status: 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  current_stage: number;
+  current_stage_name: string;
+  completed_stages: number[];
+  total_stages: number;
+  progress_percent: number;
+  elapsed_seconds: number;
+  models_evaluated: string[];
+  current_model?: string | null;
+  stage_details?: string | null;
+  error?: string | null;
+}
+
 export interface ExperimentMetric {
   id: string;
   metric_name: string;
@@ -125,6 +140,11 @@ export interface ModelRecord {
   };
   metrics_json: Record<string, any>;
   created_at: string;
+  dataset_name?: string;
+  dataset_id?: string;
+  analysis_id?: string;
+  metric_name?: string;
+  normalized_score?: number;
 }
 
 export interface Report {
@@ -177,3 +197,35 @@ export interface HealthStatus {
   datasets_count: number;
   experiments_count: number;
 }
+
+export interface WorkflowStageItem {
+  number: number;
+  name: string;
+  description: string;
+  status: 'WAITING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  started_at?: string | null;
+  completed_at?: string | null;
+  duration_seconds?: number | null;
+}
+
+export interface WorkflowProgressResponse {
+  analysis_id: string;
+  status: 'READY' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  overall_status: 'READY' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  current_stage: string;
+  current_stage_number: number;
+  total_stages: number;
+  completed_stages: number;
+  progress_percentage: number;
+  progress_percent: number;
+  stage_status: 'WAITING' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+  stage_started_at?: string | null;
+  stage_completed_at?: string | null;
+  elapsed_seconds: number;
+  error_message?: string | null;
+  error?: string | null;
+  stages: WorkflowStageItem[];
+}
+
+
+

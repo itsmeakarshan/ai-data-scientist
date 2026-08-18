@@ -120,10 +120,16 @@ def run_cli_analysis(dataset_id: str, goal: str, target: str = None, p_type: str
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="AutoDS CLI Runner")
-    parser.add_argument("--task", choices=["bank_marketing", "housing", "m5", "all"], default="bank_marketing")
+    parser.add_argument("--task", choices=["bank_marketing", "housing", "m5", "breast_cancer", "bike_sharing", "hour", "all"], default="bank_marketing")
     args = parser.parse_args()
 
     raw_dir = settings.data_raw_dir
+
+    if args.task in ("breast_cancer", "all"):
+        bc_csv = raw_dir / "benchmark" / "BreastCancer_Wisconsin.csv"
+        if bc_csv.exists():
+            ds_id = register_dataset_file(bc_csv, "Benchmark_BreastCancer_Wisconsin")
+            run_cli_analysis(ds_id, "Classify breast cancer tumor samples as malignant or benign based on digitized image cell nucleus characteristics.", target="target", p_type="classification")
 
     if args.task in ("bank_marketing", "all"):
         bank_csv = raw_dir / "bank_marketing" / "bank-additional-full.csv"
@@ -144,3 +150,11 @@ if __name__ == "__main__":
         if m5_csv.exists():
             ds_id = register_dataset_file(m5_csv, "M5_Sales_Retail")
             run_cli_analysis(ds_id, "Forecast daily sales demand across stores and categories.", target="sales", time_col="date", p_type="forecasting")
+
+    if args.task in ("bike_sharing", "hour", "all"):
+        hour_csv = raw_dir / "bike_sharing" / "hour.csv"
+        if not hour_csv.exists():
+            hour_csv = raw_dir / "0473d6c4_hour.csv"
+        if hour_csv.exists():
+            ds_id = register_dataset_file(hour_csv, "Bike_Sharing_Hour")
+            run_cli_analysis(ds_id, "Forecast hourly bike rental demand (cnt) based on environmental, seasonal, and calendar features.", target="cnt", time_col="dteday", p_type="forecasting")

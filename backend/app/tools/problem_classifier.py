@@ -6,6 +6,7 @@ Infers task type (classification, regression, forecasting, eda) using determinis
 from typing import Any, Dict, Optional, Tuple
 import pandas as pd
 from backend.app.core.logging import logger
+from backend.app.tools.data_profiler import is_candidate_datetime
 
 
 def classify_problem_type(
@@ -30,18 +31,9 @@ def classify_problem_type(
     detected_time_col = time_column
     if not detected_time_col:
         for col in df.columns:
-            if pd.api.types.is_datetime64_any_dtype(df[col]):
+            if is_candidate_datetime(df[col]):
                 detected_time_col = col
                 break
-            elif any(t in col.lower() for t in ("date", "timestamp", "time", "datetime", "day", "month", "year")):
-                # Check if parsable
-                try:
-                    converted = pd.to_datetime(df[col].dropna().head(20), errors="coerce")
-                    if converted.notna().sum() >= 15:
-                        detected_time_col = col
-                        break
-                except Exception:
-                    pass
 
     # 3. Target Detection
     detected_target_col = target_column
@@ -107,8 +99,15 @@ def classify_problem_type(
         if nunique == 2 or (nunique <= 5 and not is_numeric):
             problem_type = "classification"
             sub_type = "binary_classification" if nunique == 2 else "multiclass_classification"
-            reasoning.append(f"Target '{detected_target_col}' has {nunique} discrete categories.")
-            recommended_metric = "roc_auc" if nunique == 2 else "f1_macro"
+            val_counts = target_series.value_counts(normalize=True)
+            min_ratio = float(val_counts.min()) if len(val_counts) > 0 else 0.5
+            
+            if nunique == 2 and min_ratio < 0.25:
+                reasoning.append(f"Target '{detected_target_col}' has binary distribution with class imbalance (minority prevalence: {min_ratio*100:.1f}%). Primary evaluation relies on PR-AUC, ROC-AUC, and F1/F2 rather than raw accuracy.")
+                recommended_metric = "pr_auc" if min_ratio < 0.15 else "roc_auc"
+            else:
+                reasoning.append(f"Target '{detected_target_col}' has {nunique} discrete categories.")
+                recommended_metric = "roc_auc" if nunique == 2 else "f1_macro"
             recommended_validation = "stratified_kfold"
         elif 2 < nunique <= 20 and (not is_numeric or wants_classify):
             problem_type = "classification"

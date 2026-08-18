@@ -20,6 +20,8 @@ class Settings(BaseSettings):
         case_sensitive=False
     )
 
+    BASE_DIR: Path = BASE_DIR
+
     # App Info
     PROJECT_NAME: str = "AutoDS — Autonomous Data Science Platform"
     VERSION: str = "0.1.0"
@@ -30,14 +32,14 @@ class Settings(BaseSettings):
 
     # AI & Gemini API
     GEMINI_API_KEY: str = ""
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
 
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./autods.db"
     DATABASE_SYNC_URL: str = "sqlite:///./autods.db"
 
-    # MLflow
-    MLFLOW_TRACKING_URI: str = "./mlruns"
+    # MLflow (Database-backed store: SQLite for local dev, PostgreSQL / server in production)
+    MLFLOW_TRACKING_URI: str = "sqlite:///./data/mlflow.db"
     MLFLOW_EXPERIMENT_NAME: str = "AutoDS_Default"
 
     # Security

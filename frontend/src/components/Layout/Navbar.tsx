@@ -10,11 +10,8 @@ export const Navbar: React.FC = () => {
     if (path.startsWith('/dashboard')) return 'Platform Dashboard';
     if (path.startsWith('/datasets')) return 'Dataset Ingestion & Profiling';
     if (path.startsWith('/analysis')) return 'Autonomous Data Science Workflow';
-    if (path.startsWith('/experiments')) return 'Experiment Tracking & Benchmarks';
-    if (path.startsWith('/models')) return 'Model Registry & SHAP Explainability';
     if (path.startsWith('/reports')) return 'Evidence-Backed Reports';
     if (path.startsWith('/chat')) return 'AutoDS Grounded Chat Agent';
-    if (path.startsWith('/settings')) return 'System Settings';
     return 'Autonomous Data Science Platform';
   };
 

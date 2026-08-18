@@ -47,6 +47,7 @@ from backend.app.tools.visualizer import (
     generate_confusion_matrix_plot,
     generate_feature_importance_plot,
     generate_actual_vs_predicted_plot,
+    generate_residual_plot,
     generate_correlation_heatmap,
 )
 from backend.app.tools.reporter import (
@@ -78,6 +79,7 @@ __all__ = [
     "generate_confusion_matrix_plot",
     "generate_feature_importance_plot",
     "generate_actual_vs_predicted_plot",
+    "generate_residual_plot",
     "generate_correlation_heatmap",
     "generate_full_markdown_report",
 ]

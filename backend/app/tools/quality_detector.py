@@ -3,7 +3,7 @@ AutoDS Data Quality Detector Tool
 Identifies missingness, high cardinality, class imbalance, zero-variance columns, extreme outliers, and potential leakage.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 
@@ -84,40 +84,27 @@ def detect_data_quality(
                     "type": "extreme_target_imbalance",
                     "column": target_column,
                     "severity": "critical",
-                    "message": f"Severe class imbalance: minority class '{min_class_name}' represents only {min_class_ratio*100:.2f}% of data.",
-                    "suggested_action": "Use StratifiedKFold, class weights, SMOTE, and evaluate using PR-AUC / ROC-AUC / F1 instead of accuracy."
+                    "message": f"Severe class imbalance: minority class '{min_class_name}' represents only {min_class_ratio*100:.2f}% of data. Raw accuracy is completely misleading.",
+                    "suggested_action": "Use StratifiedKFold, class weights, and evaluate using PR-AUC / ROC-AUC / F1 / F2 instead of accuracy."
                 })
-            elif min_class_ratio < 0.20:
+            elif min_class_ratio < 0.25:
                 alerts.append({
                     "type": "moderate_target_imbalance",
                     "column": target_column,
                     "severity": "warning",
-                    "message": f"Moderate class imbalance: minority class '{min_class_name}' is {min_class_ratio*100:.1f}%.",
-                    "suggested_action": "Use StratifiedKFold validation and monitor precision-recall curves."
+                    "message": f"Class imbalance detected: minority class '{min_class_name}' is {min_class_ratio*100:.1f}%. Raw accuracy may present a false sense of model quality.",
+                    "suggested_action": "Use StratifiedKFold validation, calibrate decision threshold, and evaluate PR-AUC, ROC-AUC, F1, and F2 scores."
                 })
 
-        # 5. Potential Leakage Detection (Features correlated suspiciously high with target)
-        if pd.api.types.is_numeric_dtype(df[target_column]):
-            for col in df.select_dtypes(include=[np.number]).columns:
-                if col != target_column:
-                    corr = df[[col, target_column]].dropna().corr().iloc[0, 1]
-                    if abs(corr) >= 0.95:
-                        alerts.append({
-                            "type": "potential_target_leakage",
-                            "column": col,
-                            "severity": "critical",
-                            "message": f"Feature '{col}' has an extreme correlation ({corr:.4f}) with the target '{target_column}'.",
-                            "suggested_action": "Audit whether this column is a proxy or post-event measurement, and drop if leaky."
-                        })
-                        
-        # Specific known dataset leakage heuristics (e.g. Bank Marketing 'duration' column)
-        if target_column in ("y", "deposit") and "duration" in df.columns:
+        # 5. Potential Leakage Detection & Deterministic Target Subcomponents
+        leaky_cols, leak_expls = detect_target_component_leakage(df, target_column)
+        for l_col in leaky_cols:
             alerts.append({
-                "type": "domain_target_leakage",
-                "column": "duration",
-                "severity": "warning",
-                "message": "Column 'duration' (call duration) heavily affects target outcome, but is unknown before a call is made.",
-                "suggested_action": "Include models trained both with and without 'duration' to assess realistic prospective performance."
+                "type": "target_component_leakage",
+                "column": l_col,
+                "severity": "critical",
+                "message": leak_expls.get(l_col, f"Feature '{l_col}' represents target leakage or post-outcome information."),
+                "suggested_action": f"Exclude '{l_col}' from feature matrix before model training to eliminate prospective target leakage."
             })
 
     # 6. Duplicates Check
@@ -134,3 +121,99 @@ def detect_data_quality(
         })
 
     return alerts
+
+
+def detect_target_component_leakage(
+    df: pd.DataFrame,
+    target_column: str,
+    problem_type: Optional[str] = None
+) -> Tuple[List[str], Dict[str, str]]:
+    """
+    Detect deterministic target-component leakage, exact identity proxies,
+    and contemporaneous post-outcome features.
+
+    Returns:
+        leaky_columns: List of column names that must be excluded.
+        explanations: Mapping from column name to scientific rationale.
+    """
+    leaky_cols: set = set()
+    explanations: Dict[str, str] = {}
+
+    if target_column not in df.columns:
+        return list(leaky_cols), explanations
+
+    # 1. Exact Identity / Duplicate Check
+    for col in df.columns:
+        if col == target_column:
+            continue
+        try:
+            if (df[col] == df[target_column]).mean() > 0.999:
+                leaky_cols.add(col)
+                explanations[col] = f"Column '{col}' is an exact duplicate/identity of the target '{target_column}'."
+        except Exception:
+            pass
+
+    # 2. Deterministic Additive / Subtractive Subcomponent Decomposition (Numeric)
+    if pd.api.types.is_numeric_dtype(df[target_column]):
+        num_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c != target_column]
+        
+        # Check pairwise additive: c1 + c2 == target
+        for i in range(len(num_cols)):
+            for j in range(i + 1, len(num_cols)):
+                c1, c2 = num_cols[i], num_cols[j]
+                try:
+                    diff = (df[c1] + df[c2] - df[target_column]).abs()
+                    if diff.max() < 1e-4 or (diff == 0).mean() > 0.999:
+                        leaky_cols.add(c1)
+                        leaky_cols.add(c2)
+                        explanations[c1] = f"Column '{c1}' is a deterministic additive component of target '{target_column}' ('{c1}' + '{c2}' == '{target_column}')."
+                        explanations[c2] = f"Column '{c2}' is a deterministic additive component of target '{target_column}' ('{c1}' + '{c2}' == '{target_column}')."
+                except Exception:
+                    pass
+
+        # Check pairwise difference: c1 - c2 == target or c2 - c1 == target
+        for i in range(len(num_cols)):
+            for j in range(i + 1, len(num_cols)):
+                c1, c2 = num_cols[i], num_cols[j]
+                if c1 in leaky_cols and c2 in leaky_cols:
+                    continue
+                try:
+                    diff1 = (df[c1] - df[c2] - df[target_column]).abs()
+                    if diff1.max() < 1e-4 or (diff1 == 0).mean() > 0.999:
+                        leaky_cols.add(c1)
+                        leaky_cols.add(c2)
+                        explanations[c1] = f"Column '{c1}' is a deterministic component of target '{target_column}' ('{c1}' - '{c2}' == '{target_column}')."
+                        explanations[c2] = f"Column '{c2}' is a deterministic component of target '{target_column}' ('{c1}' - '{c2}' == '{target_column}')."
+                except Exception:
+                    pass
+
+        # Check individual extreme correlation
+        for col in num_cols:
+            if col not in leaky_cols:
+                try:
+                    corr = df[[col, target_column]].dropna().corr().iloc[0, 1]
+                    if abs(corr) >= 0.999:
+                        leaky_cols.add(col)
+                        explanations[col] = f"Feature '{col}' has an extreme correlation ({corr:.4f}) with the target '{target_column}'."
+                except Exception:
+                    pass
+
+    # 3. Known Contemporaneous / Post-Outcome Domain Feature Keywords
+    prospective_keywords = [
+        "casual", "registered", "duration", "post_event", "post_call",
+        "after_outcome", "future_val", "future_outcome", "post_sale", "post_conversion"
+    ]
+    for col in df.columns:
+        if col == target_column:
+            continue
+        c_low = col.lower()
+        # Ensure we do NOT flag legitimate historical lags / rolling features
+        if any(leg in c_low for leg in ["lag_", "roll_", "rolling_", "cal_", "hist_"]):
+            continue
+            
+        if any(k == c_low or (k in c_low and not any(leg in c_low for leg in ["lag", "roll", "cal"])) for k in prospective_keywords):
+            leaky_cols.add(col)
+            if col not in explanations:
+                explanations[col] = f"Feature '{col}' represents contemporaneous/post-outcome information that would not be available at prediction time."
+
+    return sorted(list(leaky_cols)), explanations

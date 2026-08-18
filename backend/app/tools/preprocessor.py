@@ -24,6 +24,55 @@ class PreprocessingArtifacts:
     categorical_cols: List[str]
     numerical_cols: List[str]
     dropped_columns: List[str]
+    raw_X_train: Optional[pd.DataFrame] = None
+
+
+def preprocess_fold(
+    X_tr_raw: pd.DataFrame,
+    X_val_raw: pd.DataFrame,
+    num_cols: List[str],
+    cat_cols: List[str]
+) -> Tuple[np.ndarray, np.ndarray]:
+    """
+    Fit imputer, scaler, and one-hot encoder strictly on X_tr_raw (CV training fold),
+    and transform X_tr_raw and X_val_raw (CV validation fold).
+    Ensures zero data leakage across cross-validation folds.
+    """
+    X_tr_imp = X_tr_raw.copy()
+    X_val_imp = X_val_raw.copy()
+
+    # 1. Imputation (Calculated strictly on X_tr_raw)
+    for col in num_cols:
+        med = float(X_tr_raw[col].median()) if pd.notna(X_tr_raw[col].median()) else 0.0
+        X_tr_imp[col] = X_tr_imp[col].fillna(med)
+        X_val_imp[col] = X_val_imp[col].fillna(med)
+
+    for col in cat_cols:
+        mode_val = str(X_tr_raw[col].mode().iloc[0]) if len(X_tr_raw[col].dropna()) > 0 else "missing"
+        X_tr_imp[col] = X_tr_imp[col].fillna(mode_val).astype(str)
+        X_val_imp[col] = X_val_imp[col].fillna(mode_val).astype(str)
+
+    # 2. Scaling (Fit on X_tr_raw only)
+    if len(num_cols) > 0:
+        scaler = StandardScaler()
+        X_tr_num = scaler.fit_transform(X_tr_imp[num_cols])
+        X_val_num = scaler.transform(X_val_imp[num_cols])
+    else:
+        X_tr_num = np.empty((len(X_tr_imp), 0))
+        X_val_num = np.empty((len(X_val_imp), 0))
+
+    # 3. Categorical Encoding (Fit on X_tr_raw only)
+    if len(cat_cols) > 0:
+        ohe = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
+        X_tr_cat = ohe.fit_transform(X_tr_imp[cat_cols])
+        X_val_cat = ohe.transform(X_val_imp[cat_cols])
+        X_tr = np.hstack([X_tr_num, X_tr_cat])
+        X_val = np.hstack([X_val_num, X_val_cat])
+    else:
+        X_tr = X_tr_num
+        X_val = X_val_num
+
+    return X_tr, X_val
 
 
 def clean_dataframe(
@@ -37,18 +86,26 @@ def clean_dataframe(
     cleaned = cleaned.drop_duplicates().reset_index(drop=True)
     
     dropped_cols = []
-    if drop_leakage_columns:
-        for col in drop_leakage_columns:
-            if col in cleaned.columns:
-                cleaned = cleaned.drop(columns=[col])
-                dropped_cols.append(col)
+    
+    # Auto-detect target component / prospective leakage
+    from backend.app.tools.quality_detector import detect_target_component_leakage
+    if target_column:
+        auto_leaks, _ = detect_target_component_leakage(cleaned, target_column=target_column)
+        target_leak_cols = sorted(list(set((drop_leakage_columns or []) + auto_leaks)))
+    else:
+        target_leak_cols = sorted(list(set(drop_leakage_columns or [])))
+
+    for col in target_leak_cols:
+        if col in cleaned.columns and col != target_column:
+            cleaned = cleaned.drop(columns=[col])
+            dropped_cols.append(col)
                 
     # Drop high-cardinality ID/Key columns (excluding target)
-    for col in cleaned.columns:
+    for col in list(cleaned.columns):
         if col == target_column:
             continue
         nunique = cleaned[col].nunique(dropna=True)
-        if nunique == len(cleaned) and ("id" in col.lower() or "key" in col.lower() or col.lower() == "index"):
+        if nunique == len(cleaned) and ("id" in col.lower() or "key" in col.lower() or col.lower() in ("index", "instant", "row_id", "row_number")):
             cleaned = cleaned.drop(columns=[col])
             dropped_cols.append(col)
             
@@ -249,7 +306,8 @@ def prepare_train_test_split(
         problem_type=problem_type,
         categorical_cols=cat_cols,
         numerical_cols=num_cols,
-        dropped_columns=dropped
+        dropped_columns=dropped,
+        raw_X_train=X_train_raw
     )
 
     return X_train, X_test, y_train, y_test, artifacts

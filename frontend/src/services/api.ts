@@ -70,22 +70,6 @@ export const api = {
   getAnalysisStatus: (id: string) => fetchJson<AnalysisStatus>(`${API_BASE}/analysis/${id}/status`),
   getAnalysisProgress: (id: string) => fetchJson<WorkflowProgressResponse>(`${API_BASE}/analysis/${id}/progress`),
 
-  // Experiments
-  getExperiments: (params?: { analysis_id?: string; dataset_id?: string }) => {
-    const query = new URLSearchParams();
-    if (params?.analysis_id) query.append('analysis_id', params.analysis_id);
-    if (params?.dataset_id) query.append('dataset_id', params.dataset_id);
-    return fetchJson<Experiment[]>(`${API_BASE}/experiments?${query.toString()}`);
-  },
-  getExperiment: (id: string) => fetchJson<Experiment>(`${API_BASE}/experiments/${id}`),
-  compareExperiments: (analysisId: string) =>
-    fetchJson<{
-      experiments: Experiment[];
-      best_experiment_id: string;
-      primary_metric: string;
-      comparison_table: any[];
-    }>(`${API_BASE}/experiments/compare/${analysisId}`),
-
   // Models
   getModels: (params?: { is_best?: boolean; task_type?: string; latest_per_dataset?: boolean }) => {
     const query = new URLSearchParams();

@@ -56,11 +56,19 @@ experiments/artifacts/*
 
 # Databases & SQLite
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
 postgres-data/
 
-# Logs & Temp
+# Model & Report Artifacts
+artifacts/models/*
+!artifacts/models/README.md
+!artifacts/models/.gitkeep
+
+# Jupyter Notebook Checkpoints
+.ipynb_checkpoints/
 logs/
 *.log
 scratch/

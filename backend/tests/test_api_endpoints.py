@@ -68,17 +68,15 @@ async def test_dataset_upload_and_lifecycle(async_client: AsyncClient, synthetic
     analysis_id = run_data["id"]
     assert run_data["status"] in ("RUNNING", "COMPLETED")
 
-    # 5. List Experiments
-    exp_res = await async_client.get(f"/api/experiments?analysis_id={analysis_id}")
-    assert exp_res.status_code == 200
-    exps = exp_res.json()
-    assert len(exps) >= 1
+    # 5. List Models / Model Registry
+    models_res = await async_client.get("/api/models")
+    assert models_res.status_code == 200
 
-    # 6. Compare Experiments
-    comp_res = await async_client.get(f"/api/experiments/compare/{analysis_id}")
-    assert comp_res.status_code == 200
-    comp_data = comp_res.json()
-    assert comp_data["best_experiment_id"] is not None
+    # 6. Fetch Analysis Progress & Status
+    status_res = await async_client.get(f"/api/analysis/{analysis_id}/status")
+    assert status_res.status_code == 200
+    status_data = status_res.json()
+    assert status_data["analysis_id"] == analysis_id
 
     # 7. Fetch Report
     rep_res = await async_client.get(f"/api/reports/{analysis_id}")

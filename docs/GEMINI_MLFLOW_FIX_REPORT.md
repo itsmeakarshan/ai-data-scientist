@@ -157,7 +157,7 @@ In `backend/app/tools/explainability.py`:
 ```
 ============================= test session starts ==============================
 platform darwin -- Python 3.11.15, pytest-9.1.1, pluggy-1.6.0
-rootdir: /Users/akarshanrasyal/Documents/Projects/AI
+rootdir: /workspace/autods
 plugins: cov-7.1.0, asyncio-1.4.0, anyio-4.14.2
 collected 27 items
 

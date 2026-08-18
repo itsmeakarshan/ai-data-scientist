@@ -4,21 +4,29 @@ Verifies context extraction, evidence citation, CV vs holdout separation,
 remediated leakage explanation, non-causal interpretability, and refusal to hallucinate.
 """
 
+
 import pytest
-import datetime
 from sqlalchemy.orm import Session
-from backend.app.core.database import SyncSessionLocal
-from backend.app.models.entities import AnalysisRun, Dataset, DatasetProfile, Experiment, ModelRecord, Report
-from backend.app.services.analysis_context_builder import AnalysisContextBuilder
+
 from backend.app.agents.chat_agent import answer_chat_query
 from backend.app.agents.gemini_client import gemini_client
+from backend.app.core.database import SyncSessionLocal
+from backend.app.models.entities import (
+    AnalysisRun,
+    Dataset,
+    DatasetProfile,
+    Experiment,
+    ModelRecord,
+    Report,
+)
+from backend.app.services.analysis_context_builder import AnalysisContextBuilder
 
 
 @pytest.fixture
 def mock_bank_marketing_entities():
     """Seed synthetic database entities reflecting Bank Marketing UCI analysis for chat tests."""
     sync_db: Session = SyncSessionLocal()
-    
+
     # 1. Dataset
     ds_id = "test_chat_bank_ds_1"
     ds = sync_db.query(Dataset).filter(Dataset.id == ds_id).first()
@@ -360,7 +368,7 @@ def test_comparison_mode_isolation(mock_bank_marketing_entities):
             checksum="checksum_bike_456"
         )
         sync_db.merge(ds2)
-        
+
         run2 = AnalysisRun(
             id="test_chat_run_bike_2",
             dataset_id="test_chat_bike_ds_2",
@@ -426,7 +434,8 @@ def test_target_component_leakage_explanation():
 @pytest.mark.asyncio
 async def test_agent_api_endpoints(mock_bank_marketing_entities):
     """Verify GET /agent/context and POST /agent/chat API endpoints via FastAPI AsyncClient."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from backend.app.main import app
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:

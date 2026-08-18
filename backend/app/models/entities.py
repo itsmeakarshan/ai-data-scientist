@@ -3,13 +3,13 @@ AutoDS SQLAlchemy ORM Database Models
 Defines relational schemas for datasets, profiles, analyses, experiments, metrics, models, reports, and chats.
 """
 
-from datetime import datetime, timezone
 import uuid
-from typing import Optional, List
-from sqlalchemy import (
-    String, Text, Integer, Float, Boolean, DateTime, ForeignKey, JSON
-)
+from datetime import datetime, timezone
+from typing import List, Optional
+
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from backend.app.core.database import Base
 
 

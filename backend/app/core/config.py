@@ -5,9 +5,9 @@ Pydantic Settings with support for environment variables, validation, and sensib
 
 from pathlib import Path
 from typing import List, Union
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
 
@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     STORAGE_DIR: str = str(BASE_DIR / "data")
     REPORTS_DIR: str = str(BASE_DIR / "reports")
     EXPERIMENTS_DIR: str = str(BASE_DIR / "experiments")
-    
+
     # Limits & Guards
     MAX_UPLOAD_SIZE_MB: int = 100
     SAFE_SQL_ROW_LIMIT: int = 1000

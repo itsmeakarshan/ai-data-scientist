@@ -3,12 +3,12 @@ AutoDS Workflow Stage Tracker
 Maintains deterministic stage progression, timing, stage objects, and status for active analysis runs.
 """
 
-from datetime import datetime, timezone
 import threading
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+
 from backend.app.core.database import SyncSessionLocal, with_db_retry
 from backend.app.models.entities import AnalysisRun
-
 
 STAGE_DEFINITIONS = [
     {
@@ -127,7 +127,7 @@ def update_stage_progress(
     with _LOCK:
         if analysis_id not in _ACTIVE_STAGES:
             start_stage_tracking(analysis_id)
-        
+
         rec = _ACTIVE_STAGES[analysis_id]
         now_dt = datetime.now(timezone.utc)
         now_iso = now_dt.isoformat()
@@ -135,7 +135,7 @@ def update_stage_progress(
         elapsed = int((now_dt - start_t).total_seconds())
 
         stages = rec["stages"]
-        
+
         # Complete all previous stages < stage_number
         for idx in range(stage_number - 1):
             s = stages[idx]
@@ -191,7 +191,7 @@ def complete_stage_tracking(analysis_id: str, models_evaluated: Optional[List[st
     with _LOCK:
         if analysis_id not in _ACTIVE_STAGES:
             start_stage_tracking(analysis_id)
-        
+
         rec = _ACTIVE_STAGES[analysis_id]
         now_dt = datetime.now(timezone.utc)
         now_iso = now_dt.isoformat()
@@ -336,7 +336,7 @@ def _load_from_db(analysis_id: str) -> Optional[Dict[str, Any]]:
                 start_dt = run.created_at or datetime.now(timezone.utc)
                 saved["start_time_dt"] = start_dt
                 return saved
-            
+
             # Synthesize fallback from DB AnalysisRun fields
             now_dt = datetime.now(timezone.utc)
             start_dt = run.created_at or now_dt

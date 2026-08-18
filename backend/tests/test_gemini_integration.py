@@ -4,7 +4,7 @@ Tests planning, tool calling, API failure fallback, quota backoff, and missing k
 """
 
 from unittest.mock import MagicMock, patch
-import pytest
+
 from backend.app.agents.gemini_client import GeminiAgentClient
 
 
@@ -13,7 +13,7 @@ def test_gemini_client_missing_key_fallback():
     with patch("backend.app.core.config.settings.GEMINI_API_KEY", ""):
         client = GeminiAgentClient()
         assert not client.is_active
-        
+
         # Test deterministic plan generation
         plan = client.generate_plan(
             user_goal="Predict customer churn",
@@ -23,7 +23,7 @@ def test_gemini_client_missing_key_fallback():
         assert plan["planner_source"] == "deterministic_heuristic_engine"
         assert "candidate_models" in plan
         assert "LightGBM" in plan["candidate_models"]
-        
+
         # Test deterministic business insights
         insights = client.generate_business_insights(
             dataset_name="test_data",
@@ -51,9 +51,9 @@ def test_gemini_client_planning_mocked_success():
     mock_response = MagicMock()
     mock_response.text = '{"validation_strategy": "stratified_kfold", "candidate_models": ["LightGBM", "XGBoost"], "steps": []}'
     mock_genai_client.models.generate_content.return_value = mock_response
-    
+
     client.client = mock_genai_client
-    
+
     plan = client.generate_plan(
         user_goal="Maximize accuracy",
         problem_info={"problem_type": "classification"},
@@ -74,9 +74,9 @@ def test_gemini_client_tool_calling_chat():
     mock_chat.send_message.return_value = mock_response
     mock_chat.get_history.return_value = []
     mock_genai_client.chats.create.return_value = mock_chat
-    
+
     client.client = mock_genai_client
-    
+
     def sample_tool(query: str) -> str:
         return "4118 rows"
 
@@ -97,9 +97,9 @@ def test_gemini_client_api_failure_and_quota_fallback():
     mock_genai_client = MagicMock()
     mock_genai_client.models.generate_content.side_effect = Exception("429 Resource Exhausted: Quota limit reached")
     mock_genai_client.chats.create.side_effect = Exception("503 Service Unavailable")
-    
+
     client.client = mock_genai_client
-    
+
     plan = client.generate_plan(
         user_goal="Predict sales",
         problem_info={"problem_type": "regression"},
@@ -107,7 +107,7 @@ def test_gemini_client_api_failure_and_quota_fallback():
     )
     assert plan["planner_source"] == "deterministic_heuristic_engine"
     assert "Ridge" in plan["candidate_models"]
-    
+
     chat_res = client.run_agent_chat(
         user_message="Explain feature importance",
         context_data={"top_features": [{"feature": "income", "importance_pct": 30.5}]}

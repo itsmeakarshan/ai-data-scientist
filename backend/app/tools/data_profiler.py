@@ -3,13 +3,13 @@ AutoDS Data Profiler Tool
 Performs deterministic, comprehensive exploratory data analysis, summary statistics, and type profiling.
 """
 
-from typing import Any, Dict, List, Optional
+import re
+from typing import Any, Dict, List
+
 import numpy as np
 import pandas as pd
+
 from backend.app.core.logging import logger
-
-
-import re
 
 
 def is_candidate_datetime(series: pd.Series) -> bool:
@@ -18,7 +18,7 @@ def is_candidate_datetime(series: pd.Series) -> bool:
         return True
     if not (series.dtype == object or pd.api.types.is_string_dtype(series)):
         return False
-        
+
     sample = series.dropna().head(30)
     if len(sample) == 0:
         return False
@@ -30,13 +30,13 @@ def is_candidate_datetime(series: pd.Series) -> bool:
         re.compile(r'^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}'),      # ISO datetime: 2023-01-01 12:00
         re.compile(r'^(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]* \d{1,2}', re.IGNORECASE), # Month name format
     ]
-    
+
     # Check what proportion of samples match standard date patterns
     match_count = sum(
         1 for val in sample
         if isinstance(val, str) and any(p.match(val.strip()) for p in date_patterns)
     )
-    
+
     # If fewer than 70% of non-null samples match date syntax, reject immediately
     if match_count / len(sample) < 0.7:
         return False
@@ -55,7 +55,7 @@ def profile_dataset(df: pd.DataFrame) -> Dict[str, Any]:
     """
     total_rows = len(df)
     total_cols = len(df.columns)
-    
+
     if total_rows == 0:
         return {
             "row_count": 0,
@@ -71,7 +71,7 @@ def profile_dataset(df: pd.DataFrame) -> Dict[str, Any]:
     # 1. Duplicates and Missingness
     duplicate_rows = int(df.duplicated().sum())
     duplicate_pct = round((duplicate_rows / total_rows) * 100, 2)
-    
+
     missing_by_col = df.isnull().sum().to_dict()
     missing_pct_by_col = {
         col: round((count / total_rows) * 100, 2)
@@ -102,7 +102,7 @@ def profile_dataset(df: pd.DataFrame) -> Dict[str, Any]:
     for col in df.columns:
         series = df[col]
         nunique = series.nunique(dropna=True)
-        
+
         # Check for constant
         if nunique <= 1:
             constant_columns.append(col)
@@ -138,7 +138,7 @@ def profile_dataset(df: pd.DataFrame) -> Dict[str, Any]:
             # If numeric with very few unique values (e.g. binary 0/1), record as numeric or flag
             column_types[col] = "numeric"
             clean_s = series.dropna()
-            
+
             mean_val = float(clean_s.mean()) if len(clean_s) > 0 else 0.0
             std_val = float(clean_s.std()) if len(clean_s) > 1 else 0.0
             min_val = float(clean_s.min()) if len(clean_s) > 0 else 0.0
@@ -179,7 +179,7 @@ def profile_dataset(df: pd.DataFrame) -> Dict[str, Any]:
             top_counts = clean_s.value_counts().head(10).to_dict()
             top_val = clean_s.mode().iloc[0] if len(clean_s) > 0 else None
             top_freq = int(clean_s.value_counts().iloc[0]) if len(clean_s) > 0 else 0
-            
+
             categorical_stats[col] = {
                 "count": int(clean_s.count()),
                 "unique_count": nunique,
@@ -195,14 +195,14 @@ def profile_dataset(df: pd.DataFrame) -> Dict[str, Any]:
     # 3. Correlation Matrix (Numeric Features)
     numeric_cols = [c for c, t in column_types.items() if t == "numeric"]
     correlations: Dict[str, Any] = {"matrix": {}, "top_positive": [], "top_negative": []}
-    
+
     if len(numeric_cols) >= 2:
         try:
             num_df = df[numeric_cols].dropna()
             if len(num_df) > 1:
                 corr_matrix = num_df.corr(method="pearson").round(4).to_dict()
                 correlations["matrix"] = corr_matrix
-                
+
                 pairs = []
                 for i in range(len(numeric_cols)):
                     for j in range(i + 1, len(numeric_cols)):
@@ -210,7 +210,7 @@ def profile_dataset(df: pd.DataFrame) -> Dict[str, Any]:
                         val = corr_matrix.get(c1, {}).get(c2, 0.0)
                         if not np.isnan(val):
                             pairs.append({"feature_1": c1, "feature_2": c2, "correlation": val})
-                
+
                 pairs_sorted = sorted(pairs, key=lambda x: abs(x["correlation"]), reverse=True)
                 correlations["top_positive"] = [p for p in pairs_sorted if p["correlation"] > 0][:10]
                 correlations["top_negative"] = [p for p in pairs_sorted if p["correlation"] < 0][:10]
@@ -223,13 +223,13 @@ def profile_dataset(df: pd.DataFrame) -> Dict[str, Any]:
         "y", "target", "label", "class", "churn", "status", "outcome",
         "default", "sales", "price", "revenue", "demand", "median_house_value", "deposit"
     ]
-    
+
     # Priority 1: Exact matches in priority list
     for name in target_names_priority:
         for col in df.columns:
             if col.lower() == name and col not in candidate_targets:
                 candidate_targets.append(col)
-                
+
     # Priority 2: Substring matches
     for col in df.columns:
         col_lower = col.lower()

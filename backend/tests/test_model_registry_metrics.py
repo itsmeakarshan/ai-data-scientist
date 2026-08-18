@@ -1,8 +1,6 @@
 import pytest
-from backend.app.api.v1.models import extract_model_metric_and_score, _build_model_response
-from backend.app.models.entities import ModelRecord, Experiment, Dataset, AnalysisRun
-from backend.app.core.database import SyncSessionLocal
-from sqlalchemy.orm import Session
+
+from backend.app.api.v1.models import extract_model_metric_and_score
 
 
 def test_extract_model_metric_and_score_classification():
@@ -97,7 +95,8 @@ def test_extract_model_metric_and_score_forecasting_wape_regression_test():
 @pytest.mark.asyncio
 async def test_list_models_api_normalization_and_deduplication():
     """Verify GET /api/v1/models populates normalized_score and deduplicates via latest_per_dataset."""
-    from httpx import AsyncClient, ASGITransport
+    from httpx import ASGITransport, AsyncClient
+
     from backend.app.main import app
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as ac:

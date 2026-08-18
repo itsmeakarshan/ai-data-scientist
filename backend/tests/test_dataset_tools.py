@@ -3,13 +3,11 @@ Unit and Integration Tests for AutoDS Dataset Tools
 Tests inspection, statistical profiling, data quality alerts, problem classification, and leak-free preprocessing.
 """
 
-from pathlib import Path
 import numpy as np
-import pandas as pd
-import pytest
+
 from backend.app.tools.data_profiler import profile_dataset
-from backend.app.tools.dataset_inspector import compute_file_sha256, detect_csv_delimiter, load_dataset_as_dataframe
-from backend.app.tools.preprocessor import clean_dataframe, create_forecasting_features, prepare_train_test_split
+from backend.app.tools.dataset_inspector import detect_csv_delimiter, load_dataset_as_dataframe
+from backend.app.tools.preprocessor import create_forecasting_features, prepare_train_test_split
 from backend.app.tools.problem_classifier import classify_problem_type
 from backend.app.tools.quality_detector import detect_data_quality
 
@@ -29,7 +27,7 @@ def test_dataset_inspector_csv(synthetic_csv_file):
 def test_data_profiler(synthetic_classification_df):
     """Test comprehensive dataset statistical profiling."""
     profile = profile_dataset(synthetic_classification_df)
-    
+
     assert profile["row_count"] == 200
     assert profile["col_count"] == 5
     assert "income" in profile["summary_stats"]["numerical_columns"]

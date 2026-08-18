@@ -6,15 +6,15 @@ Verifies WAL mode, busy timeout, session isolation, concurrent read/write resili
 import asyncio
 import threading
 import time
+
 import pytest
 from sqlalchemy import select, text
+
 from backend.app.agents.workflows import run_autonomous_datascience_pipeline
 from backend.app.core.database import (
     AsyncSessionLocal,
     SyncSessionLocal,
-    async_engine,
     init_db,
-    sync_engine,
     with_db_retry,
 )
 from backend.app.models.entities import AnalysisRun, Dataset

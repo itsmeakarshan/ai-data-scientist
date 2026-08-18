@@ -4,12 +4,12 @@ Applies rigorous split-before-fit preprocessing to ensure zero data leakage acro
 """
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import KFold, StratifiedKFold, TimeSeriesSplit, train_test_split
-from sklearn.preprocessing import LabelEncoder, OneHotEncoder, RobustScaler, StandardScaler
-from backend.app.core.logging import logger
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import LabelEncoder, OneHotEncoder, StandardScaler
 
 
 @dataclass
@@ -84,9 +84,9 @@ def clean_dataframe(
     cleaned = df.copy()
     initial_rows = len(cleaned)
     cleaned = cleaned.drop_duplicates().reset_index(drop=True)
-    
+
     dropped_cols = []
-    
+
     # Auto-detect target component / prospective leakage
     from backend.app.tools.quality_detector import detect_target_component_leakage
     if target_column:
@@ -99,7 +99,7 @@ def clean_dataframe(
         if col in cleaned.columns and col != target_column:
             cleaned = cleaned.drop(columns=[col])
             dropped_cols.append(col)
-                
+
     # Drop high-cardinality ID/Key columns (excluding target)
     for col in list(cleaned.columns):
         if col == target_column:
@@ -108,7 +108,7 @@ def clean_dataframe(
         if nunique == len(cleaned) and ("id" in col.lower() or "key" in col.lower() or col.lower() in ("index", "instant", "row_id", "row_number")):
             cleaned = cleaned.drop(columns=[col])
             dropped_cols.append(col)
-            
+
     return cleaned, dropped_cols
 
 
@@ -125,7 +125,7 @@ def create_forecasting_features(
     """
     feat_df = df.copy()
     feat_df[time_column] = pd.to_datetime(feat_df[time_column])
-    
+
     # Sort chronologically
     sort_cols = (group_columns or []) + [time_column]
     feat_df = feat_df.sort_values(by=sort_cols).reset_index(drop=True)
@@ -172,7 +172,7 @@ def prepare_train_test_split(
     Returns X_train, X_test, y_train, y_test, and PreprocessingArtifacts.
     """
     clean_df, dropped = clean_dataframe(df, target_column=target_column, drop_leakage_columns=drop_leakage_cols)
-    
+
     if target_column not in clean_df.columns:
         raise ValueError(f"Target column '{target_column}' not found in dataset.")
 
@@ -182,12 +182,12 @@ def prepare_train_test_split(
         split_idx = int(len(feat_df) * (1.0 - test_size))
         train_df = feat_df.iloc[:split_idx].copy()
         test_df = feat_df.iloc[split_idx:].copy()
-        
+
         feature_cols = [c for c in feat_df.columns if c not in [target_column, time_column]]
         # Categorical encoding for non-numeric columns
         cat_cols = [c for c in feature_cols if not pd.api.types.is_numeric_dtype(feat_df[c])]
         num_cols = [c for c in feature_cols if pd.api.types.is_numeric_dtype(feat_df[c])]
-        
+
         # Simple frequency or label encoding for forecast categorical grouping
         for col in cat_cols:
             le = LabelEncoder()
@@ -282,14 +282,14 @@ def prepare_train_test_split(
     # 3. Categorical Encoding (OneHot for categoricals with max 50 categories)
     ohe = None
     encoded_feature_names = list(num_cols)
-    
+
     if len(cat_cols) > 0:
         ohe = OneHotEncoder(sparse_output=False, handle_unknown="ignore")
         X_train_cat = ohe.fit_transform(X_train_imp[cat_cols])
         X_test_cat = ohe.transform(X_test_imp[cat_cols])
         cat_feature_names = list(ohe.get_feature_names_out(cat_cols))
         encoded_feature_names.extend(cat_feature_names)
-        
+
         X_train = np.hstack([X_train_num, X_train_cat])
         X_test = np.hstack([X_test_num, X_test_cat])
     else:

@@ -4,6 +4,7 @@ Identifies missingness, high cardinality, class imbalance, zero-variance columns
 """
 
 from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import pandas as pd
 
@@ -72,13 +73,13 @@ def detect_data_quality(
     if target_column and target_column in df.columns:
         target_series = df[target_column].dropna()
         nunique_target = target_series.nunique()
-        
+
         # Binary or Multiclass Imbalance check
         if nunique_target <= 10:
             val_counts = target_series.value_counts(normalize=True)
             min_class_ratio = val_counts.min()
             min_class_name = val_counts.idxmin()
-            
+
             if min_class_ratio < 0.05:
                 alerts.append({
                     "type": "extreme_target_imbalance",
@@ -156,7 +157,7 @@ def detect_target_component_leakage(
     # 2. Deterministic Additive / Subtractive Subcomponent Decomposition (Numeric)
     if pd.api.types.is_numeric_dtype(df[target_column]):
         num_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c != target_column]
-        
+
         # Check pairwise additive: c1 + c2 == target
         for i in range(len(num_cols)):
             for j in range(i + 1, len(num_cols)):
@@ -210,7 +211,7 @@ def detect_target_component_leakage(
         # Ensure we do NOT flag legitimate historical lags / rolling features
         if any(leg in c_low for leg in ["lag_", "roll_", "rolling_", "cal_", "hist_"]):
             continue
-            
+
         if any(k == c_low or (k in c_low and not any(leg in c_low for leg in ["lag", "roll", "cal"])) for k in prospective_keywords):
             leaky_cols.add(col)
             if col not in explanations:

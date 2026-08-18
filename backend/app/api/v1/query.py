@@ -5,11 +5,11 @@ AutoDS Safe SQL Query API Endpoint
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.core.database import get_db
 from backend.app.models.entities import Dataset
 from backend.app.schemas.domain import QueryRequest, QueryResponse
 from backend.app.tools.safe_query import execute_safe_sql_query
-
 
 router = APIRouter(prefix="/query", tags=["Query"])
 

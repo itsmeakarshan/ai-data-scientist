@@ -38,7 +38,7 @@ def generate_full_markdown_report(
     md.append("# AutoDS Autonomous Data Science Report")
     md.append(f"**Dataset:** `{dataset_name}`  ")
     md.append(f"**Generated:** {now_str}  ")
-    md.append(f"**Status:** Verified & Evidence-Backed  ")
+    md.append("**Status:** Verified & Evidence-Backed  ")
     md.append("\n---\n")
 
     # =========================================================================
@@ -121,7 +121,7 @@ def generate_full_markdown_report(
         "Final untouched holdout evaluation was conducted only after locking the champion model.\n"
     )
     md.append("The table below details cross-validation performance across all candidate algorithms evaluated during model selection:\n")
-    
+
     def format_family(raw_family: str, m_name: str) -> str:
         raw = (raw_family or "").lower().strip()
         if raw in ("ensemble_tree", "tree", "forest"):
@@ -191,11 +191,11 @@ def generate_full_markdown_report(
             "For imbalanced binary classification, standard decision boundaries (0.50) are uncalibrated for low positive prevalence. "
             "Threshold selection depends on the stated objective; different business costs or capacity constraints can produce a different operating threshold.\n"
         )
-        
+
         # 4.1 Threshold Selection / Validation Performance
         oof_analysis = threshold_analysis.get("oof_validation_analysis", threshold_analysis)
         oof_opt = oof_analysis.get("operating_threshold", {})
-        
+
         md.append("### 4.1 Threshold Selection / Validation Performance")
         md.append(f"**{oof_opt.get('objective', 'Selected operating threshold: 0.15 — optimised for F2 under the stated objective.')}**\n")
         md.append(f"*{oof_opt.get('reasoning', '')}*\n\n")
@@ -227,7 +227,7 @@ def generate_full_markdown_report(
         md.append(
             "The operating threshold selected from OOF validation was locked and applied once to the untouched final holdout test set:\n"
         )
-        
+
         cm = best_test_metrics.get("confusion_matrix", [[0, 0], [0, 0]])
         tn, fp = cm[0][0], cm[0][1]
         fn, tp = cm[1][0], cm[1][1]

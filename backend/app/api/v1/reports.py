@@ -4,13 +4,14 @@ Serves evidence-backed Markdown and JSON reports.
 """
 
 from typing import List
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.core.database import get_db
 from backend.app.models.entities import Report
 from backend.app.schemas.domain import ReportResponse
-
 
 router = APIRouter(prefix="/reports", tags=["Reports"])
 
@@ -26,7 +27,7 @@ async def list_reports(
     reports = list(res.scalars().all())
     # Exclude temporary test reports created during pytest runs
     valid_reports = [
-        r for r in reports 
+        r for r in reports
         if not (r.artifact_paths and any("autods_test_reports" in str(p) for p in r.artifact_paths))
     ]
     return valid_reports
@@ -59,7 +60,7 @@ async def delete_report(
     report = res.scalar_one_or_none()
     if not report:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
-    
+
     await db.delete(report)
     await db.commit()
     return {"message": "Report deleted successfully."}

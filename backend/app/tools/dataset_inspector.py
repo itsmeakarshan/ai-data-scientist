@@ -5,11 +5,12 @@ Inspects, loads, and infers file types, delimiters, sizes, and schema metadata s
 
 import csv
 import hashlib
-import io
 import os
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
+
 import pandas as pd
+
 from backend.app.core.logging import logger
 from backend.app.core.security import validate_file_path
 

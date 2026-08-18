@@ -5,9 +5,8 @@ prevalence-aware PR evaluation, non-causal reporting terminology, and leakage au
 """
 
 import numpy as np
-import pytest
 from sklearn.linear_model import LogisticRegression
-from backend.app.agents.gemini_client import gemini_client
+
 from backend.app.tools.critic import critique_experiment
 from backend.app.tools.evaluator import (
     analyze_classification_thresholds,
@@ -19,7 +18,10 @@ from backend.app.tools.explainability import (
     calculate_feature_importance,
     compute_shap_explanations,
 )
-from backend.app.tools.ml_trainer import evaluate_locked_champion_on_holdout, train_and_evaluate_model
+from backend.app.tools.ml_trainer import (
+    evaluate_locked_champion_on_holdout,
+    train_and_evaluate_model,
+)
 from backend.app.tools.reporter import generate_full_markdown_report
 
 
@@ -39,7 +41,7 @@ def test_classification_evaluation():
     ])
 
     metrics = evaluate_classification(y_true, y_pred, y_prob)
-    
+
     assert "accuracy" in metrics
     assert "roc_auc" in metrics
     assert "pr_auc" in metrics
@@ -58,7 +60,7 @@ def test_imbalanced_classification_metrics():
     y_true = np.array([0] * 90 + [1] * 10)
     # Model predicts mostly negative (high accuracy, moderate recall)
     y_pred = np.array([0] * 88 + [1] * 2 + [0] * 3 + [1] * 7)
-    
+
     # Probabilities with good separation
     np.random.seed(42)
     p_neg = np.random.uniform(0.01, 0.35, 90)
@@ -355,7 +357,7 @@ def test_explainability_and_shap():
     np.random.seed(42)
     X = np.random.randn(80, 3)
     y = (X[:, 0] * 2 + X[:, 1] > 0).astype(int)
-    
+
     model = LogisticRegression()
     model.fit(X, y)
     features = ["driver_feat", "secondary_feat", "noise_feat"]
@@ -470,6 +472,7 @@ def test_fold_safe_cv_preprocessing():
     and transforms the validation fold without leaking validation stats.
     """
     import pandas as pd
+
     from backend.app.tools.preprocessor import preprocess_fold
 
     # Training fold with mean=0
@@ -632,8 +635,8 @@ def test_regression_holdout_evaluation_and_explainability():
     computes valid regression metrics (RMSE, MAE, R²), supports SHAP explainability,
     and successfully generates actual vs predicted visualization artifacts.
     """
+
     from backend.app.tools.visualizer import generate_actual_vs_predicted_plot
-    import os
 
     np.random.seed(42)
     X_train = np.random.randn(300, 5)
@@ -691,8 +694,9 @@ def test_regression_holdout_evaluation_and_explainability():
     assert len(shap_res["top_shap_features"]) > 0
 
     # 6. Actual vs Predicted Plot generation
-    from backend.app.core.config import settings
     from pathlib import Path
+
+    from backend.app.core.config import settings
 
     plot_path = generate_actual_vs_predicted_plot(
         y_true=y_test,
@@ -732,9 +736,10 @@ def test_bike_sharing_target_component_leakage_prevention():
     while legitimate calendar/weather and historical lag/rolling features are preserved.
     """
     import pandas as pd
-    from backend.app.tools.quality_detector import detect_target_component_leakage
-    from backend.app.tools.preprocessor import prepare_train_test_split
+
     from backend.app.tools.critic import critique_experiment
+    from backend.app.tools.preprocessor import prepare_train_test_split
+    from backend.app.tools.quality_detector import detect_target_component_leakage
     from backend.app.tools.reporter import generate_full_markdown_report
 
     # Create synthetic dataset with target cnt and additive components casual & registered
@@ -947,12 +952,16 @@ def test_get_model_instance_normalization_and_estimator_mapping():
     Ensure get_model_instance correctly normalizes PascalCase, snake_case, and kebab-case
     model names and instantiates genuine estimator classes rather than fallback defaults.
     """
-    from backend.app.tools.ml_trainer import get_model_instance
-    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, GradientBoostingClassifier, GradientBoostingRegressor
-    from sklearn.linear_model import LogisticRegression, Ridge
-    from sklearn.dummy import DummyClassifier, DummyRegressor
     import lightgbm as lgb
+    from sklearn.dummy import DummyClassifier, DummyRegressor
+    from sklearn.ensemble import (
+        RandomForestClassifier,
+        RandomForestRegressor,
+    )
+    from sklearn.linear_model import LogisticRegression, Ridge
     from xgboost import XGBClassifier, XGBRegressor
+
+    from backend.app.tools.ml_trainer import get_model_instance
 
     # Classification Tests
     clf_cases = [

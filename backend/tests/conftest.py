@@ -2,15 +2,16 @@
 Pytest configuration and synthetic fixtures for AutoDS backend tests.
 """
 
-import os
 import tempfile
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
 from httpx import ASGITransport, AsyncClient
+
 from backend.app.core.config import settings
-from backend.app.core.database import Base, async_engine, init_db
+from backend.app.core.database import init_db
 from backend.app.main import app
 
 
@@ -32,11 +33,11 @@ def synthetic_classification_df() -> pd.DataFrame:
     income = np.random.normal(50000, 15000, n).clip(15000, 150000)
     category = np.random.choice(["admin", "services", "technician", "management"], n)
     credit_score = np.random.normal(650, 80, n).clip(300, 850)
-    
+
     # Target probability depends on income and credit score
     prob = 1.0 / (1.0 + np.exp(-( (income - 50000)/30000 + (credit_score - 650)/100 )))
     target = (np.random.rand(n) < prob).astype(int)
-    
+
     df = pd.DataFrame({
         "age": age,
         "income": income.round(2),
@@ -56,7 +57,7 @@ def synthetic_regression_df() -> pd.DataFrame:
     bedrooms = np.random.choice([1, 2, 3, 4], n)
     city = np.random.choice(["Austin", "Seattle", "Denver"], n)
     price = 100000 + (sqft * 150) + (bedrooms * 20000) + np.random.normal(0, 15000, n)
-    
+
     return pd.DataFrame({
         "sqft": sqft.round(),
         "bedrooms": bedrooms,
@@ -74,7 +75,7 @@ def synthetic_forecasting_df() -> pd.DataFrame:
     season = 5 * np.sin(2 * np.pi * dates.dayofweek.to_numpy() / 7)
     noise = np.random.normal(0, 2, len(dates))
     sales = np.maximum(0, trend + season + noise).round(1)
-    
+
     return pd.DataFrame({
         "date": dates.strftime("%Y-%m-%d"),
         "store": "Store_A",

@@ -3,14 +3,15 @@ AutoDS Analysis Run API Endpoints
 Initiates and monitors autonomous Data Science workflow executions.
 """
 
-from typing import List, Optional
+from typing import List
+
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.agents.stage_tracker import get_stage_status, start_stage_tracking
 from backend.app.agents.workflows import run_autonomous_datascience_pipeline
 from backend.app.core.database import get_db
-from backend.app.core.logging import logger
 from backend.app.models.entities import AnalysisRun, Dataset
 from backend.app.schemas.domain import (
     AnalysisCreateRequest,
@@ -18,7 +19,6 @@ from backend.app.schemas.domain import (
     AnalysisStatusResponse,
     WorkflowProgressResponse,
 )
-
 
 router = APIRouter(prefix="/analysis", tags=["Analysis"])
 

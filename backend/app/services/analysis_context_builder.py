@@ -4,9 +4,18 @@ Constructs structured, compact, and evidence-grounded context dictionaries from 
 (Datasets, AnalysisRuns, Experiments, ModelRecords, Reports) for the conversational Chat Agent.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
+
 from sqlalchemy.orm import Session
-from backend.app.models.entities import AnalysisRun, Dataset, DatasetProfile, Experiment, ModelRecord, Report
+
+from backend.app.models.entities import (
+    AnalysisRun,
+    Dataset,
+    DatasetProfile,
+    Experiment,
+    ModelRecord,
+    Report,
+)
 
 
 class AnalysisContextBuilder:
@@ -122,7 +131,7 @@ class AnalysisContextBuilder:
                     "train_time_sec": exp.train_time_sec,
                     "status": "Champion" if exp.model_name == analysis_run.final_model_id or (report_obj and exp.model_name in (report_obj.title or "")) else "Candidate"
                 })
-            
+
             # Sort leaderboard descending by cv_mean if available
             leaderboard_list.sort(key=lambda x: (x.get("cv_mean") is not None, x.get("cv_mean") or 0.0), reverse=True)
             context["leaderboard"] = leaderboard_list
@@ -233,7 +242,7 @@ class AnalysisContextBuilder:
                 comp_champ = None
                 if comp_run.final_model_id:
                     comp_champ = sync_db.query(ModelRecord).filter(ModelRecord.id == comp_run.final_model_id).first()
-                
+
                 comp_test_m = comp_champ.metrics_json.get("test", {}) if comp_champ and comp_champ.metrics_json else {}
                 context["comparison"] = {
                     "analysis_id": comp_run.id,

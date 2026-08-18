@@ -2,10 +2,8 @@
 End-to-End API Integration Tests for AutoDS REST Endpoints
 """
 
-import io
 import pytest
-from httpx import ASGITransport, AsyncClient
-from backend.app.main import app
+from httpx import AsyncClient
 
 
 @pytest.mark.asyncio

@@ -6,24 +6,25 @@ regression, and forecasting scenarios.
 """
 
 from pathlib import Path
+
 import numpy as np
-import pytest
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression, Ridge
+
 from backend.app.core.config import settings
 from backend.app.tools.evaluator import (
     evaluate_classification,
-    evaluate_regression,
     evaluate_forecasting,
-)
-from backend.app.tools.visualizer import (
-    generate_roc_pr_plots,
-    generate_confusion_matrix_plot,
-    generate_feature_importance_plot,
-    generate_actual_vs_predicted_plot,
-    generate_residual_plot,
+    evaluate_regression,
 )
 from backend.app.tools.explainability import calculate_feature_importance
+from backend.app.tools.visualizer import (
+    generate_actual_vs_predicted_plot,
+    generate_confusion_matrix_plot,
+    generate_feature_importance_plot,
+    generate_residual_plot,
+    generate_roc_pr_plots,
+)
 
 
 def test_binary_classification_visual_diagnostics():
@@ -32,12 +33,12 @@ def test_binary_classification_visual_diagnostics():
     N = 200
     X = np.random.randn(N, 5)
     y_true = (X[:, 0] + X[:, 1] * 0.5 + np.random.randn(N) * 0.5 > 0).astype(int)
-    
+
     clf = LogisticRegression()
     clf.fit(X, y_true)
     y_pred = clf.predict(X)
     y_prob = clf.predict_proba(X)
-    
+
     # 1. Evaluation
     metrics = evaluate_classification(y_true, y_pred, y_prob, user_goal="Predict binary outcome")
     assert metrics["is_binary"] is True
@@ -91,12 +92,12 @@ def test_multiclass_classification_visual_diagnostics():
     K = 4  # 4 classes
     X = np.random.randn(N, 6)
     y_true = np.random.choice(K, size=N, p=[0.4, 0.3, 0.2, 0.1])
-    
+
     clf = RandomForestClassifier(n_estimators=10, random_state=42)
     clf.fit(X, y_true)
     y_pred = clf.predict(X)
     y_prob = clf.predict_proba(X)
-    
+
     # 1. Evaluation
     metrics = evaluate_classification(y_true, y_pred, y_prob, user_goal="Multiclass prediction")
     assert metrics["is_binary"] is False
@@ -150,11 +151,11 @@ def test_regression_visual_diagnostics():
     N = 200
     X = np.random.randn(N, 4)
     y_true = X[:, 0] * 3.0 + X[:, 1] * -2.0 + np.random.randn(N)
-    
+
     reg = Ridge()
     reg.fit(X, y_true)
     y_pred = reg.predict(X)
-    
+
     metrics = evaluate_regression(y_true, y_pred)
     assert "rmse" in metrics
     assert "r2" in metrics
@@ -229,7 +230,7 @@ def test_graceful_skipping_when_probabilities_unavailable():
     np.random.seed(42)
     y_true = np.array([0, 1, 0, 1, 1, 0, 1, 0])
     y_pred = np.array([0, 1, 0, 0, 1, 0, 1, 0])
-    
+
     # Passing y_prob=None
     metrics = evaluate_classification(y_true, y_pred, y_prob=None)
     assert metrics["is_binary"] is True

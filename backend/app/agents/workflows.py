@@ -3,12 +3,12 @@ AutoDS Autonomous Workflow Engine
 Orchestrates the entire Data Science lifecycle from raw data ingestion to report generation and DB persistence.
 """
 
-from datetime import datetime, timezone
 import os
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from datetime import datetime, timezone
+from typing import Any, Optional
+
 import numpy as np
-import pandas as pd
+
 from backend.app.agents.gemini_client import gemini_client
 from backend.app.agents.stage_tracker import (
     complete_stage_tracking,
@@ -17,13 +17,11 @@ from backend.app.agents.stage_tracker import (
     update_stage_progress,
 )
 from backend.app.agents.state import AgentState
-from backend.app.core.config import settings
 from backend.app.core.database import SyncSessionLocal, with_db_retry
 from backend.app.core.logging import logger
 from backend.app.models.entities import (
     AnalysisRun,
     Dataset,
-    DatasetProfile,
     Experiment,
     ExperimentMetric,
     ModelRecord,
@@ -32,11 +30,6 @@ from backend.app.models.entities import (
 from backend.app.tools.critic import critique_experiment
 from backend.app.tools.data_profiler import profile_dataset
 from backend.app.tools.dataset_inspector import load_dataset_as_dataframe
-from backend.app.tools.evaluator import (
-    evaluate_classification,
-    evaluate_forecasting,
-    evaluate_regression,
-)
 from backend.app.tools.explainability import (
     calculate_feature_importance,
     compute_shap_explanations,
@@ -69,7 +62,7 @@ def run_autonomous_datascience_pipeline(
     """
     db_run = None
     db = sync_db_session or SyncSessionLocal()
-    
+
     try:
         # 1. Fetch Dataset & AnalysisRun Records from DB with retry
         def _fetch_initial_data():
@@ -115,7 +108,7 @@ def run_autonomous_datascience_pipeline(
         df_raw, meta = load_dataset_as_dataframe(file_path)
         state.current_step = "DATA_PROFILING"
         state.log(f"Loaded {len(df_raw)} rows, {len(df_raw.columns)} columns.")
-        
+
         profile = profile_dataset(df_raw)
         state.profile_summary = profile
 
@@ -280,15 +273,15 @@ def run_autonomous_datascience_pipeline(
         champion_exp = initial_best
         if critic_result.get("requires_iteration") and "REMOVE_LEAKY_FEATURES" in critic_result.get("remediation_actions", []):
             state.current_step = "CRITIC_ITERATION"
-            
+
             leaky_features_to_drop = []
             for f in critic_result.get("findings", []):
                 if f.get("issue_type") in ("domain_target_leakage", "potential_target_leakage", "leaky_feature"):
                     leaky_features_to_drop.extend(f.get("affected_components", []))
             leaky_features_to_drop = list(set(leaky_features_to_drop))
-            
+
             state.log(f"Critic detected prospective data leakage in features: {leaky_features_to_drop}. Retraining corrected leak-free model suite...")
-            
+
             X_tr_c, X_te_c, y_tr_c, y_te_c, prep_art_c = prepare_train_test_split(
                 df=df_raw,
                 target_column=state.target_column,
@@ -296,7 +289,7 @@ def run_autonomous_datascience_pipeline(
                 time_column=state.time_column,
                 drop_leakage_cols=leaky_features_to_drop
             )
-            
+
             leak_free_exps = []
             for m_name in candidate_models:
                 lf_name = f"{m_name}_LeakFree"
@@ -369,7 +362,7 @@ def run_autonomous_datascience_pipeline(
         best_model_obj = champion_exp["model"]
         feature_imp = calculate_feature_importance(best_model_obj, prep_artifacts.feature_names)
         shap_res = compute_shap_explanations(best_model_obj, X_test, prep_artifacts.feature_names)
-        
+
         state.explainability = {
             "feature_importance": feature_imp,
             "shap_summary": shap_res,

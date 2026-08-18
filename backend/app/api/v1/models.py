@@ -4,14 +4,15 @@ Manages trained champion models, SHAP interpretability values, and feature impor
 """
 
 from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
-from backend.app.core.database import get_db
-from backend.app.models.entities import ModelRecord, Experiment, Dataset, AnalysisRun
-from backend.app.schemas.domain import ModelRecordResponse
+from sqlalchemy.orm import selectinload
 
+from backend.app.core.database import get_db
+from backend.app.models.entities import Experiment, ModelRecord
+from backend.app.schemas.domain import ModelRecordResponse
 
 router = APIRouter(prefix="/models", tags=["Models"])
 

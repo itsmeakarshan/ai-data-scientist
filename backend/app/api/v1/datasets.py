@@ -3,14 +3,15 @@ AutoDS Datasets API Endpoints
 Handles dataset upload, schema inspection, profiling, and sampling.
 """
 
-from pathlib import Path
 import shutil
 import uuid
-from typing import List, Optional
+from pathlib import Path
+
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
 from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.core.logging import logger
@@ -18,14 +19,12 @@ from backend.app.core.security import ALLOWED_EXTENSIONS, sanitize_filename
 from backend.app.models.entities import Dataset, DatasetProfile
 from backend.app.schemas.domain import (
     DatasetListResponse,
-    DatasetProfileResponse,
     DatasetResponse,
     SampleRowsResponse,
 )
 from backend.app.tools.data_profiler import profile_dataset
 from backend.app.tools.dataset_inspector import load_dataset_as_dataframe
 from backend.app.tools.quality_detector import detect_data_quality
-
 
 router = APIRouter(prefix="/datasets", tags=["Datasets"])
 
@@ -269,7 +268,7 @@ async def delete_dataset(
     dataset = res.scalar_one_or_none()
     if not dataset:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Dataset not found.")
-    
+
     await db.delete(dataset)
     await db.commit()
     return {"message": "Dataset deleted successfully.", "id": dataset_id}

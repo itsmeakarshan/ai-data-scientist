@@ -4,8 +4,10 @@ Computes SHAP values, feature importances, and directional feature attributions.
 """
 
 from typing import Any, Dict, List, Optional
+
 import numpy as np
 import shap
+
 from backend.app.core.logging import logger
 
 

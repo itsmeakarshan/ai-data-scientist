@@ -4,11 +4,13 @@ Protects against path traversal, disallowed SQL keywords, malicious file uploads
 """
 
 import os
-from pathlib import Path
 import re
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple, Union
+from pathlib import Path
+from typing import List, Optional, Tuple, Union
+
 from fastapi import HTTPException, status
+
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 
@@ -46,7 +48,7 @@ def validate_file_path(file_path: Union_Path_or_Str, allowed_parent: Optional[Pa
 
     # Determine permitted workspace roots
     allowed_roots: List[Path] = [storage_dir, base_dir]
-    
+
     # In test environments, permit the temporary test directory
     if settings.ENVIRONMENT == "test" or os.environ.get("PYTEST_CURRENT_TEST"):
         allowed_roots.append(Path(tempfile.gettempdir()).resolve())
@@ -114,9 +116,9 @@ def validate_sql_query(query: str) -> Tuple[bool, str]:
     # Remove comments
     clean_query_no_comments = re.sub(r"--.*?$", "", clean_query, flags=re.MULTILINE)
     clean_query_no_comments = re.sub(r"/\*.*?\*/", "", clean_query_no_comments, flags=re.DOTALL)
-    
+
     tokens = re.findall(r"\b[A-Za-z_]+\b", clean_query_no_comments.upper())
-    
+
     if not tokens or tokens[0] not in ("SELECT", "WITH", "EXPLAIN", "DESCRIBE", "SHOW"):
         return False, f"Only read-only analytical queries (SELECT / WITH) are allowed. Found: {tokens[0] if tokens else 'None'}"
 

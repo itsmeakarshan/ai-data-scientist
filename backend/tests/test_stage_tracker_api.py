@@ -5,8 +5,8 @@ Verifies production real-time autonomous workflow progress tracking, database pe
 
 import pytest
 from httpx import AsyncClient
+
 from backend.app.agents.stage_tracker import (
-    STAGE_DEFINITIONS,
     complete_stage_tracking,
     fail_stage_tracking,
     get_stage_status,
@@ -35,7 +35,7 @@ async def test_2_stage_completion_updates_progress_correctly():
     """2. Stage completion updates progress correctly (e.g. stage 5 = 44.4%)."""
     run_id = "test-req-2-update-prog"
     start_stage_tracking(run_id)
-    
+
     # Move to stage 5 (stages 1..4 completed)
     rec5 = update_stage_progress(run_id, stage_number=5)
     assert rec5["current_stage_number"] == 5
@@ -65,7 +65,7 @@ async def test_4_failed_stage_sets_failed_state():
     run_id = "test-req-4-fail-state"
     start_stage_tracking(run_id)
     update_stage_progress(run_id, stage_number=5)
-    
+
     fail_rec = fail_stage_tracking(run_id, "Data split failed due to imbalance.")
     assert fail_rec["status"] == "FAILED"
     assert fail_rec["overall_status"] == "FAILED"
@@ -80,7 +80,7 @@ async def test_5_failed_run_does_not_continue_to_later_stages():
     start_stage_tracking(run_id)
     update_stage_progress(run_id, stage_number=5)
     fail_rec = fail_stage_tracking(run_id, "Model fit error.")
-    
+
     # Completed stages before stage 5 remain 4
     assert fail_rec["completed_stages"] == 4
     # Stage 5 is FAILED
@@ -95,21 +95,21 @@ async def test_6_progress_belongs_to_correct_analysis_id():
     """6. Progress belongs to the correct analysis_id without leaking into other runs."""
     run_a = "run-a-111"
     run_b = "run-b-222"
-    
+
     start_stage_tracking(run_a)
     start_stage_tracking(run_b)
-    
+
     update_stage_progress(run_a, stage_number=3)
     update_stage_progress(run_b, stage_number=7)
-    
+
     status_a = get_stage_status(run_a)
     status_b = get_stage_status(run_b)
-    
+
     assert status_a["analysis_id"] == run_a
     assert status_a["current_stage_number"] == 3
     assert status_a["completed_stages"] == 2
     assert status_a["progress_percentage"] == 22.2
-    
+
     assert status_b["analysis_id"] == run_b
     assert status_b["current_stage_number"] == 7
     assert status_b["completed_stages"] == 6

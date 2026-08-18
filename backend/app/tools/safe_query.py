@@ -4,11 +4,11 @@ Executes verified read-only analytical SQL queries over local CSV/Parquet datase
 """
 
 import time
-from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
+
 import duckdb
+
 from backend.app.core.config import settings
-from backend.app.core.logging import logger
 from backend.app.core.security import validate_file_path, validate_sql_query
 
 
@@ -23,7 +23,7 @@ def execute_safe_sql_query(
     """
     # 1. Security validation of file path
     valid_path = validate_file_path(file_path)
-    
+
     # 2. Security validation of SQL query
     is_valid, error_msg = validate_sql_query(sql_query)
     if not is_valid:
@@ -34,7 +34,7 @@ def execute_safe_sql_query(
 
     start_time = time.time()
     con = duckdb.connect(database=":memory:", read_only=False)
-    
+
     try:
         # Load dataset into in-memory table
         file_ext = valid_path.suffix.lower()
@@ -59,7 +59,7 @@ def execute_safe_sql_query(
         result = con.execute(executed_sql)
         columns = [desc[0] for desc in result.description]
         raw_rows = result.fetchall()
-        
+
         # Format as list of dicts
         rows = [dict(zip(columns, row)) for row in raw_rows]
         exec_ms = round((time.time() - start_time) * 1000, 2)

@@ -2,7 +2,6 @@
 Security and Functional Tests for AutoDS Safe SQL Tool
 """
 
-import pytest
 from backend.app.core.security import validate_sql_query
 from backend.app.tools.safe_query import execute_safe_sql_query
 

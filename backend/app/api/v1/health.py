@@ -5,12 +5,12 @@ AutoDS Health Check API Endpoints
 from fastapi import APIRouter, Depends
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from backend.app.agents.gemini_client import gemini_client
 from backend.app.core.config import settings
 from backend.app.core.database import get_db
 from backend.app.models.entities import Dataset, Experiment
 from backend.app.schemas.domain import HealthStatusResponse
-
 
 router = APIRouter(prefix="/health", tags=["Health"])
 
@@ -25,11 +25,11 @@ async def get_health_status(db: AsyncSession = Depends(get_db)):
     try:
         await db.execute(text("SELECT 1"))
         db_connected = True
-        
+
         # Count datasets
         ds_res = await db.execute(select(func.count(Dataset.id)))
         dataset_count = ds_res.scalar() or 0
-        
+
         # Count experiments
         exp_res = await db.execute(select(func.count(Experiment.id)))
         exp_count = exp_res.scalar() or 0

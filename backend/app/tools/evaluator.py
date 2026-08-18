@@ -4,10 +4,10 @@ Computes rigorous, deterministic metrics, class imbalance diagnostics, threshold
 and diagnostic curves for classification, regression, and forecasting.
 """
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 from sklearn.calibration import calibration_curve
-from sklearn.preprocessing import label_binarize
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
@@ -18,7 +18,6 @@ from sklearn.metrics import (
     fbeta_score,
     log_loss,
     mean_absolute_error,
-    mean_absolute_percentage_error,
     mean_squared_error,
     median_absolute_error,
     precision_recall_curve,
@@ -28,6 +27,7 @@ from sklearn.metrics import (
     roc_auc_score,
     roc_curve,
 )
+from sklearn.preprocessing import label_binarize
 
 
 def analyze_classification_thresholds(

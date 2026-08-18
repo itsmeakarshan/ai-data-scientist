@@ -4,7 +4,6 @@ Audits experiments for data leakage, severe overfitting, improper validation, an
 """
 
 from typing import Any, Dict, List, Optional
-import numpy as np
 
 
 def critique_experiment(
@@ -38,7 +37,7 @@ def critique_experiment(
         if not test_metrics and cv_mean > 0:
             eval_score = cv_mean
             eval_context = "Validation CV"
-            
+
         divergence = train_score - eval_score
 
         if train_score >= 0.98 and eval_score < 0.82 and eval_score > 0:
@@ -111,7 +110,7 @@ def critique_experiment(
                 "severity": "info",
                 "description": f"Leakage prevention excluded '{rf}': {expl}",
                 "affected_components": [rf],
-                "remediation": f"Excluded from feature matrix before model training to ensure prediction-time validity."
+                "remediation": "Excluded from feature matrix before model training to ensure prediction-time validity."
             })
 
     # Check suspiciously high test score indicative of target proxy
@@ -154,7 +153,7 @@ def critique_experiment(
         acc = test_metrics.get("accuracy", 0.0)
         rec = test_metrics.get("positive_recall", test_metrics.get("recall_positive", 0.0))
         f1 = test_metrics.get("f1_positive", test_metrics.get("f1", 0.0))
-        
+
         findings.append({
             "issue_type": "class_imbalance_accuracy_hazard",
             "severity": "warning",

@@ -7,8 +7,10 @@ Provides high-fidelity deterministic fallbacks when the API key is not configure
 import json
 import time
 from typing import Any, Callable, Dict, List, Optional
+
 from google import genai
 from google.genai import types
+
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 
@@ -204,14 +206,14 @@ Only return valid JSON array.
 
         # Deterministic Insight Synthesis grounded in real computed data
         logger.info("Gemini API not used for insights; deterministic fallback used.")
-        
+
         if problem_type == "classification":
             roc = test_metrics.get("roc_auc", 0.0)
             pr = test_metrics.get("pr_auc", 0.0)
             f1 = test_metrics.get("f1_positive", test_metrics.get("f1_macro", 0.0))
             f2 = test_metrics.get("f2_positive", test_metrics.get("f2", 0.0))
             bal_acc = test_metrics.get("balanced_accuracy", 0.0)
-            
+
             return [
                 {
                     "category": "observed_facts",
@@ -250,8 +252,8 @@ Only return valid JSON array.
                 {
                     "category": "observed_facts",
                     "title": f"Target Variance Profile in {dataset_name}",
-                    "finding": f"Target values show continuous distribution across evaluation samples.",
-                    "evidence": f"Evaluation across holdout test set.",
+                    "finding": "Target values show continuous distribution across evaluation samples.",
+                    "evidence": "Evaluation across holdout test set.",
                     "confidence": "High"
                 },
                 {
@@ -390,7 +392,7 @@ Instructions:
         explains remediated leakage accurately, and provides transparent evidence citations.
         """
         msg_lower = user_message.lower().strip()
-        
+
         # 1. Check for Comparison Query
         comparison = context_data.get("comparison")
         if comparison and any(w in msg_lower for w in ("compare", "comparison", "versus", "vs", "difference between datasets")):
@@ -526,10 +528,10 @@ Instructions:
                 )
             else:
                 return (
-                    f"### Critic Audit Findings\n\n"
-                    f"**Audit Status:** `STATUS: PASSED`\n\n"
-                    f"The AutoDS Critic completed the audit: all methodological checks passed cleanly. Zero target leakage, zero prospective leaks, and no severe generalization gaps were identified.\n\n"
-                    f"> **[Evidence: Critic Audit]** All verification checks passed."
+                    "### Critic Audit Findings\n\n"
+                    "**Audit Status:** `STATUS: PASSED`\n\n"
+                    "The AutoDS Critic completed the audit: all methodological checks passed cleanly. Zero target leakage, zero prospective leaks, and no severe generalization gaps were identified.\n\n"
+                    "> **[Evidence: Critic Audit]** All verification checks passed."
                 )
 
         # 6. Predictive Drivers & Explainability: "What are the most important drivers / features / SHAP?"
@@ -557,11 +559,11 @@ Instructions:
         # 7. CV vs Holdout explanation: "What is the difference between CV and holdout?"
         if any(w in msg_lower for w in ("difference between cv", "cv vs holdout", "cv and holdout", "why cv", "cv vs test", "cross-validation vs holdout")):
             return (
-                f"### Cross-Validation vs. Holdout Evaluation Methodology\n\n"
-                f"- **Cross-Validation (CV):** Used on the **training partition** during candidate model training to rank and select the best algorithm (`cv_mean`, `cv_std`). This prevents overfitting and guards against model selection bias.\n"
-                f"- **Out-of-Fold (OOF) Validation:** Used to select the calibrated operating decision threshold on training folds.\n"
-                f"- **Untouched Holdout Set:** Evaluated **strictly once** after the champion model and decision threshold are locked. It provides an unbiased estimate of future real-world generalization.\n\n"
-                f"> **[Evidence: Methodological Protocol]** Zero holdout leakage enforced across all pipeline stages."
+                "### Cross-Validation vs. Holdout Evaluation Methodology\n\n"
+                "- **Cross-Validation (CV):** Used on the **training partition** during candidate model training to rank and select the best algorithm (`cv_mean`, `cv_std`). This prevents overfitting and guards against model selection bias.\n"
+                "- **Out-of-Fold (OOF) Validation:** Used to select the calibrated operating decision threshold on training folds.\n"
+                "- **Untouched Holdout Set:** Evaluated **strictly once** after the champion model and decision threshold are locked. It provides an unbiased estimate of future real-world generalization.\n\n"
+                "> **[Evidence: Methodological Protocol]** Zero holdout leakage enforced across all pipeline stages."
             )
 
         # 8. Accuracy vs Imbalance explanation: "Why isn't accuracy a good metric?"
@@ -658,12 +660,12 @@ Instructions:
                     f"> **[Evidence: Operational Risks]** Extracted from Section 8 Model Limitations & Risk Analysis."
                 )
             return (
-                f"### Key Operational Risks & Model Limitations\n\n"
-                f"1. **Class Asymmetry:** In skewed distributions, raw accuracy masks critical false negative errors.\n"
-                f"2. **Threshold Sensitivity:** Operational performance directly depends on maintaining the calibrated decision cutoff.\n"
-                f"3. **Non-Causal Associative Bounds:** High predictive weight indicates correlation, not causal leverage.\n"
-                f"4. **Covariate Drift:** Production deployment requires monitoring for population and distribution shifts.\n\n"
-                f"> **[Evidence: Operational Risks]** Core operational governance framework."
+                "### Key Operational Risks & Model Limitations\n\n"
+                "1. **Class Asymmetry:** In skewed distributions, raw accuracy masks critical false negative errors.\n"
+                "2. **Threshold Sensitivity:** Operational performance directly depends on maintaining the calibrated decision cutoff.\n"
+                "3. **Non-Causal Associative Bounds:** High predictive weight indicates correlation, not causal leverage.\n"
+                "4. **Covariate Drift:** Production deployment requires monitoring for population and distribution shifts.\n\n"
+                "> **[Evidence: Operational Risks]** Core operational governance framework."
             )
 
         # 12. Executive / Stakeholder / Business Manager Summary: "Explain like a business manager", "Summarize report", "Tell a stakeholder"

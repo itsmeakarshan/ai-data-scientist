@@ -5,9 +5,10 @@ Provides evidence-backed conversational responses, data explanations, and automa
 
 import json
 from typing import Any, Callable, Dict, List, Optional
+
 from backend.app.agents.gemini_client import gemini_client
 from backend.app.core.logging import logger
-from backend.app.models.entities import AnalysisRun, Dataset, ModelRecord, Report
+from backend.app.models.entities import AnalysisRun, Dataset
 from backend.app.services.analysis_context_builder import AnalysisContextBuilder
 from backend.app.tools.safe_query import execute_safe_sql_query
 
@@ -37,7 +38,7 @@ def answer_chat_query(
     if sync_db_session:
         target_analysis_id = analysis_id or (latest_run.id if latest_run else None)
         target_dataset_id = dataset_id or (dataset.id if dataset else None)
-        
+
         # Check if user message explicitly requests comparison with another dataset/analysis
         msg_lower_check = user_message.lower()
         comp_id = comparison_analysis_id
@@ -102,7 +103,7 @@ def answer_chat_query(
                 return f"Query returned {res['row_count']} rows: {json.dumps(res['rows'][:10], default=str)}"
             except Exception as ex:
                 return f"SQL Error: {ex}"
-        
+
         agent_tools.append(execute_analytical_sql)
 
     # 5. Natural language query intent -> Auto-SQL generation fallback

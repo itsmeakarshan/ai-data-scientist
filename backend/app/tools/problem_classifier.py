@@ -3,9 +3,10 @@ AutoDS Problem Classifier Tool
 Infers task type (classification, regression, forecasting, eda) using deterministic heuristics.
 """
 
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional
+
 import pandas as pd
-from backend.app.core.logging import logger
+
 from backend.app.tools.data_profiler import is_candidate_datetime
 
 
@@ -20,7 +21,7 @@ def classify_problem_type(
     to determine the appropriate Data Science workflow.
     """
     goal_lower = user_goal.lower()
-    
+
     # 1. Look for explicit user goal keywords
     wants_forecast = any(w in goal_lower for w in ("forecast", "time series", "future sales", "demand", "predict next", "horizon"))
     wants_classify = any(w in goal_lower for w in ("classify", "classification", "churn", "subscribe", "fraud", "default", "categorical", "binary"))
@@ -47,7 +48,7 @@ def classify_problem_type(
                     break
             if detected_target_col:
                 break
-                
+
         if not detected_target_col:
             # Fallback to last non-id, non-time column
             for col in reversed(df.columns):
@@ -95,13 +96,13 @@ def classify_problem_type(
         target_series = df[detected_target_col].dropna()
         nunique = target_series.nunique()
         is_numeric = pd.api.types.is_numeric_dtype(target_series)
-        
+
         if nunique == 2 or (nunique <= 5 and not is_numeric):
             problem_type = "classification"
             sub_type = "binary_classification" if nunique == 2 else "multiclass_classification"
             val_counts = target_series.value_counts(normalize=True)
             min_ratio = float(val_counts.min()) if len(val_counts) > 0 else 0.5
-            
+
             if nunique == 2 and min_ratio < 0.25:
                 reasoning.append(f"Target '{detected_target_col}' has binary distribution with class imbalance (minority prevalence: {min_ratio*100:.1f}%). Primary evaluation relies on PR-AUC, ROC-AUC, and F1/F2 rather than raw accuracy.")
                 recommended_metric = "pr_auc" if min_ratio < 0.15 else "roc_auc"

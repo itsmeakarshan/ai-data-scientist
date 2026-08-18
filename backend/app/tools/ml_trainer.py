@@ -3,19 +3,26 @@ AutoDS Machine Learning Trainer Tool
 Trains genuine, reproducible ML models, executes cross-validation, and tracks runs via MLflow.
 """
 
-from pathlib import Path
 import threading
 import time
 import uuid
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
 import lightgbm as lgb
 import mlflow
 import numpy as np
 from sklearn.dummy import DummyClassifier, DummyRegressor
-from sklearn.ensemble import GradientBoostingClassifier, GradientBoostingRegressor, RandomForestClassifier, RandomForestRegressor
+from sklearn.ensemble import (
+    GradientBoostingClassifier,
+    GradientBoostingRegressor,
+    RandomForestClassifier,
+    RandomForestRegressor,
+)
 from sklearn.linear_model import LogisticRegression, Ridge
 from sklearn.model_selection import KFold, StratifiedKFold
 from xgboost import XGBClassifier, XGBRegressor
+
 from backend.app.core.config import settings
 from backend.app.core.logging import logger
 from backend.app.tools.evaluator import (
@@ -25,7 +32,6 @@ from backend.app.tools.evaluator import (
     evaluate_regression,
 )
 from backend.app.tools.preprocessor import preprocess_fold
-
 
 # Global singleton lock to ensure MLflow is initialized once
 _MLFLOW_INITIALIZED = False
@@ -372,7 +378,7 @@ def evaluate_locked_champion_on_holdout(
                 mlflow.log_param("num_features", len(feature_names))
                 mlflow.log_metric("train_time_sec", train_time_sec)
                 mlflow.log_metric("cv_mean", cv_mean)
-                
+
                 for k, v in test_metrics.items():
                     if isinstance(v, (int, float)) and not np.isnan(v):
                         mlflow.log_metric(f"test_{k}", v)

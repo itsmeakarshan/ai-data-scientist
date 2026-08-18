@@ -3,10 +3,12 @@ AutoDS Conversational Agent API Endpoints
 """
 
 from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+
 from backend.app.agents.chat_agent import answer_chat_query
 from backend.app.core.database import SyncSessionLocal, get_db
 from backend.app.models.entities import AnalysisRun, ChatMessage, ChatSession, Dataset, Report
@@ -16,7 +18,6 @@ from backend.app.schemas.domain import (
     ChatSessionResponse,
 )
 from backend.app.services.analysis_context_builder import AnalysisContextBuilder
-
 
 router = APIRouter(prefix="/agent", tags=["Agent"])
 
@@ -56,7 +57,7 @@ async def chat_with_agent(
     try:
         ds_id = req.dataset_id or session.dataset_id
         dataset_obj = sync_db.query(Dataset).filter(Dataset.id == ds_id).first() if ds_id else None
-        
+
         target_analysis_id = req.analysis_id
         if not target_analysis_id and req.report_id:
             rep = sync_db.query(Report).filter(Report.id == req.report_id).first()
@@ -66,7 +67,7 @@ async def chat_with_agent(
         latest_run = sync_db.query(AnalysisRun).filter(AnalysisRun.id == target_analysis_id).first() if target_analysis_id else (
             sync_db.query(AnalysisRun).filter(AnalysisRun.dataset_id == ds_id).order_by(AnalysisRun.created_at.desc()).first() if ds_id else None
         )
-        
+
         # Recent history
         hist_msgs = sync_db.query(ChatMessage).filter(ChatMessage.session_id == session_id).order_by(ChatMessage.created_at.desc()).limit(6).all()
         formatted_history = [{"role": m.role, "content": m.content} for m in reversed(hist_msgs)]

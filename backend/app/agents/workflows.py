@@ -209,7 +209,8 @@ def run_autonomous_datascience_pipeline(
                 user_goal=user_goal,
                 raw_X_train=prep_artifacts.raw_X_train,
                 num_cols=prep_artifacts.numerical_cols,
-                cat_cols=prep_artifacts.categorical_cols
+                cat_cols=prep_artifacts.categorical_cols,
+                target_encoder=prep_artifacts.target_encoder
             )
             raw_experiments.append(exp_res)
             models_trained[model_name] = exp_res
@@ -310,7 +311,8 @@ def run_autonomous_datascience_pipeline(
                     user_goal=user_goal,
                     raw_X_train=prep_art_c.raw_X_train,
                     num_cols=prep_art_c.numerical_cols,
-                    cat_cols=prep_art_c.categorical_cols
+                    cat_cols=prep_art_c.categorical_cols,
+                    target_encoder=prep_art_c.target_encoder
                 )
                 state.experiments.append(lf_exp)
                 leak_free_exps.append(lf_exp)

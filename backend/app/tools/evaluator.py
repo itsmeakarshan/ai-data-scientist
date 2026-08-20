@@ -168,7 +168,8 @@ def evaluate_classification(
     y_prob: Optional[np.ndarray] = None,
     user_goal: str = "",
     locked_threshold: Optional[float] = None,
-    oof_threshold_analysis: Optional[Dict[str, Any]] = None
+    oof_threshold_analysis: Optional[Dict[str, Any]] = None,
+    target_encoder: Optional[Any] = None
 ) -> Dict[str, Any]:
     """
     Compute comprehensive classification metrics, class imbalance diagnostics,
@@ -177,6 +178,16 @@ def evaluate_classification(
     """
     classes = np.unique(y_true)
     is_binary = len(classes) == 2
+
+    # Map encoded class indices back to original labels if target_encoder is provided
+    if target_encoder is not None and hasattr(target_encoder, "inverse_transform"):
+        try:
+            original_labels = list(target_encoder.inverse_transform(classes))
+            class_labels = [int(l) if str(l).isdigit() else str(l) for l in original_labels]
+        except Exception:
+            class_labels = [int(c) if isinstance(c, (int, np.integer)) else str(c) for c in classes]
+    else:
+        class_labels = [int(c) if isinstance(c, (int, np.integer)) else str(c) for c in classes]
 
     acc = float(accuracy_score(y_true, y_pred))
     bal_acc = float(balanced_accuracy_score(y_true, y_pred))
@@ -196,7 +207,7 @@ def evaluate_classification(
         "precision_macro": round(prec_macro, 4),
         "recall_macro": round(rec_macro, 4),
         "confusion_matrix": cm_list,
-        "class_labels": [int(c) if isinstance(c, (int, np.integer)) else str(c) for c in classes],
+        "class_labels": class_labels,
         "is_binary": is_binary,
     }
 
@@ -205,7 +216,7 @@ def evaluate_classification(
         "conversion", "marketing", "campaign", "deposit", "subscribe", "subscription", "prospect", "lead"
     ))
 
-    # Binary Classification Specific Metrics
+    # Binary vs Multiclass classification metrics
     if is_binary:
         pos_label = 1 if 1 in classes else classes[-1]
         pos_prevalence = float(np.mean(y_true == pos_label))
@@ -251,12 +262,19 @@ def evaluate_classification(
             )
     else:
         metrics["is_imbalanced"] = False
-        metrics["positive_class_prevalence"] = round(1.0 / len(classes), 4) if len(classes) > 0 else 0.0
-        metrics["specificity"] = round(rec_macro, 4)
-        metrics["precision_positive"] = round(prec_macro, 4)
-        metrics["recall_positive"] = round(rec_macro, 4)
-        metrics["f1_positive"] = round(f1_macro, 4)
-        metrics["f2_positive"] = round(f1_macro, 4)
+        # Calculate Multiclass ROC-AUC (OVR) and PR-AUC if probabilities available
+        if y_prob is not None and y_prob.ndim == 2:
+            try:
+                y_bin = label_binarize(y_true, classes=classes)
+                if y_bin.shape[1] == y_prob.shape[1]:
+                    macro_roc = float(roc_auc_score(y_bin, y_prob, average="macro", multi_class="ovr"))
+                    macro_pr = float(average_precision_score(y_bin, y_prob, average="macro"))
+                    metrics["roc_auc"] = round(macro_roc, 4)
+                    metrics["pr_auc"] = round(macro_pr, 4)
+                    metrics["macro_roc_auc"] = round(macro_roc, 4)
+                    metrics["macro_pr_auc"] = round(macro_pr, 4)
+            except Exception:
+                pass
 
     # Probability-based metrics (ROC-AUC, PR-AUC, Log Loss, Calibration, Thresholds)
     if y_prob is not None:

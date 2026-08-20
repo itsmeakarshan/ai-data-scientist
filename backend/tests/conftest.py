@@ -22,6 +22,8 @@ def setup_test_environment():
     settings.STORAGE_DIR = tempfile.mkdtemp(prefix="autods_test_data_")
     settings.REPORTS_DIR = tempfile.mkdtemp(prefix="autods_test_reports_")
     settings.EXPERIMENTS_DIR = tempfile.mkdtemp(prefix="autods_test_exp_")
+    from backend.app.core.database import Base, sync_engine
+    Base.metadata.create_all(bind=sync_engine)
 
 
 @pytest.fixture

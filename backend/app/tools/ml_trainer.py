@@ -131,6 +131,7 @@ def train_and_evaluate_model(
     raw_X_train: Optional[Any] = None,
     num_cols: Optional[List[str]] = None,
     cat_cols: Optional[List[str]] = None,
+    target_encoder: Optional[Any] = None,
     X_test: Optional[np.ndarray] = None,
     y_test: Optional[np.ndarray] = None
 ) -> Dict[str, Any]:
@@ -143,9 +144,10 @@ def train_and_evaluate_model(
 
     model, family, params = get_model_instance(model_name, problem_type, random_state)
 
+    # Fit model on training fold / training split
     start_time = time.time()
     model.fit(X_train, y_train)
-    train_time_sec = round(time.time() - start_time, 3)
+    fit_time_sec = round(time.time() - start_time, 3)
 
     # Training Predictions
     y_train_pred = model.predict(X_train)
@@ -195,7 +197,7 @@ def train_and_evaluate_model(
                     oof_y_prob[val_idx, 1] = val_pred
                     oof_y_prob[val_idx, 0] = 1.0 - val_pred
 
-                m = evaluate_classification(y_val_f, val_pred, val_prob if hasattr(fold_model, "predict_proba") else None, user_goal=user_goal)
+                m = evaluate_classification(y_val_f, val_pred, val_prob if hasattr(fold_model, "predict_proba") else None, user_goal=user_goal, target_encoder=target_encoder)
                 cv_scores.append(m.get("roc_auc", m.get("accuracy", 0.0)))
 
             if is_binary:
@@ -245,7 +247,8 @@ def train_and_evaluate_model(
             y_train, y_train_pred, y_train_prob,
             user_goal=user_goal,
             locked_threshold=locked_operating_threshold,
-            oof_threshold_analysis=oof_threshold_analysis
+            oof_threshold_analysis=oof_threshold_analysis,
+            target_encoder=target_encoder
         )
     elif problem_type == "regression":
         train_metrics = evaluate_regression(y_train, y_train_pred)
@@ -259,8 +262,9 @@ def train_and_evaluate_model(
         "model_family": family,
         "params": params,
         "problem_type": problem_type,
+        "target_encoder": target_encoder,
         "feature_names": feature_names,
-        "train_time_sec": train_time_sec,
+        "train_time_sec": fit_time_sec,
         "metrics": {
             "cv_mean": cv_mean,
             "cv_std": cv_std,
@@ -321,12 +325,15 @@ def evaluate_locked_champion_on_holdout(
         except Exception:
             pass
 
+    target_encoder = champion_exp.get("target_encoder")
+
     if problem_type == "classification":
         test_metrics = evaluate_classification(
             y_test, y_test_pred, y_test_prob,
             user_goal=user_goal,
             locked_threshold=locked_th,
-            oof_threshold_analysis=oof_th_analysis
+            oof_threshold_analysis=oof_th_analysis,
+            target_encoder=target_encoder
         )
     elif problem_type == "regression":
         test_metrics = evaluate_regression(y_test, y_test_pred)

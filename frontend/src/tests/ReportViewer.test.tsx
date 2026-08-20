@@ -104,11 +104,11 @@ describe('ReportViewer Visual Diagnostics & 4-Pillar Architecture', () => {
     // 1. Verify "Generated Visual Diagnostics" subsection heading is present in default PDF view
     expect(screen.getByText(/5\. Generated Visual Diagnostics/i)).toBeDefined();
 
-    // 2. Verify all 4 diagnostic plot titles
-    expect(screen.getByText(/LightGBM — ROC Curve \(Receiver Operating Characteristic\)/i)).toBeDefined();
-    expect(screen.getByText(/LightGBM — Precision-Recall Curve \(PR-AUC\)/i)).toBeDefined();
-    expect(screen.getByText(/LightGBM — Confusion Matrix \(Locked Operating Threshold\)/i)).toBeDefined();
-    expect(screen.getByText(/LightGBM — Top Predictive Drivers \(Feature Importance\)/i)).toBeDefined();
+    // 2. Verify all 4 diagnostic plot titles (clean and concise)
+    expect(screen.getByText(/LightGBM — ROC Curve/i)).toBeDefined();
+    expect(screen.getByText(/LightGBM — Precision-Recall Curve/i)).toBeDefined();
+    expect(screen.getByText(/LightGBM — Confusion Matrix/i)).toBeDefined();
+    expect(screen.getByText(/LightGBM — Top Predictive Drivers/i)).toBeDefined();
 
     // 3. Verify non-causal disclaimer on feature importance
     expect(screen.getByText(/\* These are model-derived predictive associations, not causal effects\./i)).toBeDefined();
@@ -207,7 +207,35 @@ The champion model selected is **LightGBM**.
       },
     };
 
-    // A. Classification report: threshold section rendered
+    const multiclassReport: Report = {
+      ...regressionReport,
+      id: 'rep-multi-123',
+      title: 'AutoDS Analysis Report — Wine_Quality',
+      summary_markdown: 'Completed multiclass classification pipeline. Best Model: RandomForest.',
+      full_report_markdown: `# AutoDS Autonomous Data Science Report
+**Dataset:** \`Wine_Quality\`  
+**Task Type:** classification  
+
+The champion model selected is **RandomForest**, achieving a Test **Macro F1 of 0.7241**, **Macro ROC-AUC of 0.8842**, **Macro PR-AUC of 0.7102**, and **Balanced Accuracy of 0.7015**.
+
+## 2. Dataset Overview & Data Quality Profile (Observed Facts)
+Total rows: 4898
+Target Column: \`quality\`
+
+## 4. Multi-Class Diagnostic Evaluation & Class Breakdown
+Evaluated Target Classes (6): 3, 4, 5, 6, 7, 8
+`,
+      methodology_json: {
+        problem_type: 'classification',
+        is_binary: false,
+      },
+      artifact_paths: [
+        'reports/artifacts/rep-multi-123_RandomForest_cm.png',
+        'reports/artifacts/rep-multi-123_RandomForest_feature_imp.png',
+      ],
+    };
+
+    // A. Binary classification report: threshold section rendered
     const { unmount: unmountClass } = render(
       <BrowserRouter>
         <ReportViewer report={mockReport} />
@@ -216,25 +244,138 @@ The champion model selected is **LightGBM**.
     expect(screen.getByText(/3\. Classification Threshold Selection & Touchless Holdout Analysis/i)).toBeDefined();
     unmountClass();
 
-    // B. Regression report: threshold section NOT rendered, titles correct
+    // B. Multiclass classification report: threshold section NOT rendered, multiclass metrics present
+    const { unmount: unmountMulti } = render(
+      <BrowserRouter>
+        <ReportViewer report={multiclassReport} />
+      </BrowserRouter>
+    );
+    expect(screen.queryByText(/3\. Classification Threshold Selection & Touchless Holdout Analysis/i)).toBeNull();
+    expect(screen.queryByText(/0\.50 cutoff/i)).toBeNull();
+    expect(screen.queryByText(/positive recall/i)).toBeNull();
+    expect(screen.getByText(/Class Selection Strategy/i)).toBeDefined();
+    unmountMulti();
+
+    // C. Regression report: threshold section NOT rendered, titles correct, no classification terminology/stale values
     const { unmount: unmountReg } = render(
       <BrowserRouter>
         <ReportViewer report={regressionReport} />
       </BrowserRouter>
     );
     expect(screen.queryByText(/3\. Classification Threshold Selection & Touchless Holdout Analysis/i)).toBeNull();
-    // Verify D: regression actual_vs_pred artifact title is "Actual vs Predicted / Forecast Comparison"
-    expect(screen.getByText(/XGBoost — Actual vs Predicted \/ Forecast Comparison/i)).toBeDefined();
-    expect(screen.getByText(/XGBoost — Residual Diagnostics & Error Distribution/i)).toBeDefined();
-    expect(screen.getByText(/XGBoost — Top Predictive Drivers \(Feature Importance\)/i)).toBeDefined();
+    expect(screen.queryByText(/Target Base Rate \(Prevalence\)/i)).toBeNull();
+    expect(screen.queryByText(/Class Imbalance Detected/i)).toBeNull();
+    expect(screen.queryByText(/11\.27%/i)).toBeNull();
+    expect(screen.queryByText(/Threshold Guarantee/i)).toBeNull();
+    expect(screen.queryByText(/OOF Validation Selected → Touchless Holdout Eval/i)).toBeNull();
+
+    // Verify regression actual_vs_pred artifact title is clean and concise
+    expect(screen.getByText(/XGBoost — Actual vs Predicted/i)).toBeDefined();
+    expect(screen.getByText(/XGBoost — Residual Diagnostics/i)).toBeDefined();
+    expect(screen.getByText(/XGBoost — Top Predictive Drivers/i)).toBeDefined();
     unmountReg();
 
-    // C. Forecasting report: threshold section NOT rendered
+    // D. Forecasting report: threshold section NOT rendered, no classification terms
     render(
       <BrowserRouter>
         <ReportViewer report={forecastingReport} />
       </BrowserRouter>
     );
     expect(screen.queryByText(/3\. Classification Threshold Selection & Touchless Holdout Analysis/i)).toBeNull();
+    expect(screen.queryByText(/Target Base Rate \(Prevalence\)/i)).toBeNull();
+    expect(screen.queryByText(/11\.27%/i)).toBeNull();
+  });
+
+  it('dynamically renumbers sections sequentially with zero missing numbers when threshold section is omitted', () => {
+    const regressionReport: Report = {
+      ...mockReport,
+      id: 'rep-reg-456',
+      title: 'AutoDS Analysis Report — California_Housing',
+      summary_markdown: 'Completed regression pipeline for goal "Predict median house value". Best Model: XGBoost.',
+      full_report_markdown: `# AutoDS Autonomous Data Science Report
+**Dataset:** \`California_Housing\`  
+**Task Type:** regression  
+
+The champion model selected is **XGBoost**.
+
+## 3. Model Leaderboard & Multi-Metric Evaluation
+| Model Name | Primary Loss Metric | CV Std | Train Time (s) | Model Family | Status |
+|---|---|---|---|---|---|
+| \`XGBoost\` | CV: 0.4612 | ±0.0120 | 2.10s | Gradient Boosting | Champion |
+
+## 5. Methodological Critic Audit
+All Methodological Critic Rules Passed Cleanly.
+
+## 8. Model Limitations & Operational Risk Analysis
+1. **Out-of-Bounds Sensitivity**: Sensitive to extreme outliers.
+`,
+      methodology_json: {
+        problem_type: 'regression',
+      },
+      artifact_paths: [
+        'reports/artifacts/rep-reg-456_XGBoost_actual_vs_pred.png',
+      ],
+    };
+
+    render(
+      <BrowserRouter>
+        <ReportViewer report={regressionReport} />
+      </BrowserRouter>
+    );
+
+    // Section 1: Executive Summary
+    expect(screen.getByText(/1\. Executive Summary & Problem Formulation/i)).toBeDefined();
+    // Section 2: Model Leaderboard
+    expect(screen.getByText(/2\. Candidate Model Leaderboard & Multi-Metric Evaluation/i)).toBeDefined();
+    // Section 3: Critic Audit (renumbered from 4 to 3!)
+    expect(screen.getByText(/3\. Methodological Critic Audit & Leakage Safeguards/i)).toBeDefined();
+    // Section 4: Visual Diagnostics (renumbered from 5 to 4!)
+    expect(screen.getByText(/4\. Generated Visual Diagnostics/i)).toBeDefined();
+    // Section 5: 4-Pillar Insights (renumbered from 6 to 5!)
+    expect(screen.getByText(/5\. 4-Pillar Evidence-Backed Business Insights/i)).toBeDefined();
+    // Section 6: Operational Risks (renumbered from 7 to 6!)
+    expect(screen.getByText(/6\. Operational Risk Analysis & Deployment Boundaries/i)).toBeDefined();
+
+    // Verify there are no duplicate or missing section numbers
+    expect(screen.queryByText(/7\. Operational Risk Analysis/i)).toBeNull();
+  });
+
+  it('renders Markdown bold cleanly without literal asterisks in the UI and PDF views', () => {
+    const reportWithBold: Report = {
+      ...mockReport,
+      id: 'rep-bold-789',
+      title: 'AutoDS Analysis Report — **Bank_Marketing_UCI**',
+      full_report_markdown: `# AutoDS Autonomous Data Science Report
+**Dataset:** \`Bank_Marketing_UCI\`
+**Objective:** **Maximize positive conversion** with high recall.
+
+The champion model selected is **LightGBM**, with **ROC-AUC of 0.8121**.
+
+## 8. Model Limitations & Operational Risk Analysis
+1. **Correlation vs Causation**: Feature rankings are **statistical signals**, not causal guarantees.
+`,
+      business_insights_json: {
+        insights: [
+          {
+            category: 'fact',
+            title: '**Observed Campaign Volume**',
+            finding: 'Total of **4,521** client records audited.',
+            evidence: '**Dataset profile** metrics',
+            confidence: 'HIGH',
+          },
+        ],
+      },
+    };
+
+    const { container } = render(
+      <BrowserRouter>
+        <ReportViewer report={reportWithBold} />
+      </BrowserRouter>
+    );
+
+    // Ensure raw ** asterisks do not appear literally in the rendered DOM text
+    const allText = container.textContent || '';
+    // Look for occurrences of "**" in rendered text
+    expect(allText).not.toContain('**');
   });
 });

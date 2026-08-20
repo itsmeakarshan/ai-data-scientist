@@ -64,13 +64,13 @@ def generate_roc_pr_plots(
                 ax.plot(c_fpr, c_tpr, lw=1.5, alpha=0.7, color=palette[idx % len(palette)], label=f"Class {cls_name} (AUC = {c_auc:.3f})")
 
         ax.plot([0, 1], [0, 1], color="#9ca3af", lw=1.5, linestyle="--", label="Chance (AUC = 0.500)")
-        ax.set_title(f"Receiver Operating Characteristic (One-vs-Rest) — {model_name}", fontsize=11, fontweight="bold")
+        ax.set_title(f"ROC Curve (OvR) — {model_name}", fontsize=11, fontweight="bold")
     else:
         fpr = roc_data.get("fpr", [0, 1])
         tpr = roc_data.get("tpr", [0, 1])
         ax.plot(fpr, tpr, color="#2563eb", lw=2, label=f"{model_name} (AUC = {roc_auc:.3f})")
         ax.plot([0, 1], [0, 1], color="#9ca3af", lw=1.5, linestyle="--", label="Chance (AUC = 0.500)")
-        ax.set_title(f"Receiver Operating Characteristic — {model_name}", fontsize=12, fontweight="bold")
+        ax.set_title(f"ROC Curve — {model_name}", fontsize=11, fontweight="bold")
 
     ax.set_xlim([0.0, 1.0])
     ax.set_ylim([0.0, 1.05])
@@ -103,14 +103,14 @@ def generate_roc_pr_plots(
                 ax.plot(c_rec, c_prec, lw=1.5, alpha=0.7, color=palette[idx % len(palette)], label=f"Class {cls_name} (PR-AUC = {c_pr_auc:.3f})")
 
         ax.plot([0, 1], [baseline_prev, baseline_prev], color="#9ca3af", lw=1.5, linestyle="--", label=f"Chance Baseline ({baseline_prev:.3f})")
-        ax.set_title(f"Precision-Recall Curve (One-vs-Rest) — {model_name}", fontsize=11, fontweight="bold")
+        ax.set_title(f"Precision-Recall Curve (OvR) — {model_name}", fontsize=11, fontweight="bold")
     else:
         prec = pr_data.get("precision", [1, 0])
         rec = pr_data.get("recall", [0, 1])
         baseline_prev = pr_data.get("baseline_prevalence", 0.1)
         ax.plot(rec, prec, color="#10b981", lw=2, label=f"{model_name} (PR-AUC = {pr_auc:.3f})")
         ax.plot([0, 1], [baseline_prev, baseline_prev], color="#9ca3af", lw=1.5, linestyle="--", label=f"Chance Baseline ({baseline_prev:.3f})")
-        ax.set_title(f"Precision-Recall Curve — {model_name}", fontsize=12, fontweight="bold")
+        ax.set_title(f"Precision-Recall Curve — {model_name}", fontsize=11, fontweight="bold")
 
     ax.set_xlim([0.0, 1.0])
     ax.set_ylim([0.0, 1.05])

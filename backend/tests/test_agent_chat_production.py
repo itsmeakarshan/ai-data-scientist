@@ -381,6 +381,17 @@ def test_comparison_mode_isolation(mock_bank_marketing_entities):
         )
         sync_db.merge(run2)
 
+        exp2 = Experiment(
+            id="test_exp_bike_2",
+            analysis_id="test_chat_run_bike_2",
+            dataset_id="test_chat_bike_ds_2",
+            model_name="XGBoost",
+            model_family="Gradient Boosting",
+            validation_strategy="time_series_split",
+            status="COMPLETED"
+        )
+        sync_db.merge(exp2)
+
         m2 = ModelRecord(
             id="test_chat_model_xgb_2",
             experiment_id="test_exp_bike_2",

@@ -58,6 +58,10 @@ body {
   #pdf-report-document, #pdf-report-document * {
     visibility: visible !important;
   }
+  .no-print, .no-print * {
+    display: none !important;
+    visibility: hidden !important;
+  }
   #pdf-report-document {
     position: absolute !important;
     left: 0 !important;

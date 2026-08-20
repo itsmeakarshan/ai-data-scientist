@@ -51,37 +51,51 @@ def generate_full_markdown_report(
         f"using **{validation_strategy}** validation. "
     )
 
+    is_binary = best_test_metrics.get("is_binary", True)
+
     if problem_type == "classification":
         roc = best_test_metrics.get("roc_auc", 0.0)
         pr = best_test_metrics.get("pr_auc", 0.0)
-        f1 = best_test_metrics.get("f1_positive", best_test_metrics.get("f1_macro", 0.0))
-        f2 = best_test_metrics.get("f2_positive", best_test_metrics.get("f2", 0.0))
         bal_acc = best_test_metrics.get("balanced_accuracy", 0.0)
-        pos_prec = best_test_metrics.get("positive_precision", best_test_metrics.get("precision_positive", 0.0))
-        pos_rec = best_test_metrics.get("positive_recall", best_test_metrics.get("recall_positive", 0.0))
         acc = best_test_metrics.get("accuracy", 0.0)
+        f1_macro = best_test_metrics.get("f1_macro", 0.0)
 
-        md.append(
-            f"The champion model selected is **{best_model_name}**, achieving a Test **ROC-AUC of {roc:.4f}**, "
-            f"**PR-AUC of {pr:.4f}**, **Balanced Accuracy of {bal_acc:.4f}**, and **Positive-Class F1 of {f1:.4f}** (F2: {f2:.4f}).\n"
-        )
+        if is_binary:
+            f1 = best_test_metrics.get("f1_positive", best_test_metrics.get("f1", 0.0))
+            f2 = best_test_metrics.get("f2_positive", best_test_metrics.get("f2", 0.0))
+            pos_prec = best_test_metrics.get("positive_precision", 0.0)
+            pos_rec = best_test_metrics.get("positive_recall", 0.0)
 
-        majority_baseline = max(prevalence, 1.0 - prevalence)
-        if is_imbalanced:
             md.append(
-                f"> [!WARNING]\n"
-                f"> **Target Class Imbalance Alert:** Positive-class prevalence is **{prevalence*100:.2f}%** ({int(prevalence*100)} in 100). "
-                f"In this imbalanced distribution, **raw accuracy ({acc*100:.1f}%) is misleading** because a naive majority-class baseline "
-                f"achieves {majority_baseline*100:.1f}% accuracy while capturing 0 minority cases. "
-                f"Evaluation is strictly grounded in **ROC-AUC ({roc:.4f})**, **PR-AUC ({pr:.4f})**, **Positive Recall ({pos_rec*100:.1f}%)**, "
-                f"**Positive Precision ({pos_prec*100:.1f}%)**, and **Balanced Accuracy ({bal_acc:.4f})**.\n"
+                f"The champion model selected is **{best_model_name}**, achieving a Test **ROC-AUC of {roc:.4f}**, "
+                f"**PR-AUC of {pr:.4f}**, **Balanced Accuracy of {bal_acc:.4f}**, and **Positive-Class F1 of {f1:.4f}** (F2: {f2:.4f}).\n"
             )
 
-        ranking_insight = threshold_analysis.get("ranking_insight")
-        if ranking_insight:
+            majority_baseline = max(prevalence, 1.0 - prevalence)
+            if is_imbalanced:
+                md.append(
+                    f"> [!WARNING]\n"
+                    f"> **Target Class Imbalance Alert:** Positive-class prevalence is **{prevalence*100:.2f}%** ({int(prevalence*100)} in 100). "
+                    f"In this imbalanced distribution, **raw accuracy ({acc*100:.1f}%) is misleading** because a naive majority-class baseline "
+                    f"achieves {majority_baseline*100:.1f}% accuracy while capturing 0 minority cases. "
+                    f"Evaluation is strictly grounded in **ROC-AUC ({roc:.4f})**, **PR-AUC ({pr:.4f})**, **Positive Recall ({pos_rec*100:.1f}%)**, "
+                    f"**Positive Precision ({pos_prec*100:.1f}%)**, and **Balanced Accuracy ({bal_acc:.4f})**.\n"
+                )
+
+            ranking_insight = threshold_analysis.get("ranking_insight")
+            if ranking_insight:
+                md.append(
+                    f"> [!NOTE]\n"
+                    f"> **Probability Ranking vs Binary Cutoff:** {ranking_insight}\n"
+                )
+        else:
+            md.append(
+                f"The champion model selected is **{best_model_name}**, achieving a Test **Macro F1 of {f1_macro:.4f}**, "
+                f"**Macro ROC-AUC of {roc:.4f}**, **Macro PR-AUC of {pr:.4f}**, and **Balanced Accuracy of {bal_acc:.4f}** (Accuracy: {acc*100:.2f}%).\n"
+            )
             md.append(
                 f"> [!NOTE]\n"
-                f"> **Probability Ranking vs Binary Cutoff:** {ranking_insight}\n"
+                f"> **Multi-Class Evaluation Disclosure:** Predictions are selected among the available target classes using argmax over predicted probability outputs. Macro-averaged metrics weight each class equally to ensure balanced performance evaluation.\n"
             )
 
     elif problem_type == "regression":
@@ -178,10 +192,10 @@ def generate_full_markdown_report(
     md.append("\n")
 
     # =========================================================================
-    # 4. Classification & Decision Threshold Analysis
+    # 4. Classification Diagnostics / Decision Threshold Analysis
     # =========================================================================
     threshold_analysis = best_test_metrics.get("threshold_analysis", {})
-    if problem_type == "classification" and threshold_analysis:
+    if problem_type == "classification" and is_binary and threshold_analysis:
         md.append("## 4. Classification & Decision Threshold Analysis")
         md.append(
             "> [!IMPORTANT]\n"
@@ -254,6 +268,22 @@ def generate_full_markdown_report(
         if ranking_insight:
             md.append("### 4.4 Probability Ranking & Decision Prioritization")
             md.append(f"{ranking_insight}\n\n")
+
+    elif problem_type == "classification" and not is_binary:
+        md.append("## 4. Multi-Class Diagnostic Evaluation & Class Breakdown")
+        md.append(
+            "> [!IMPORTANT]\n"
+            "> **Multi-Class Evaluation Disclosure:** Evaluated on the untouched holdout test set using argmax decision assignment over predicted class probabilities.\n"
+        )
+        md.append(
+            f"The champion model (**{best_model_name}**) achieved a **Macro F1 score of {best_test_metrics.get('f1_macro', 0.0):.4f}**, "
+            f"**Macro ROC-AUC of {best_test_metrics.get('macro_roc_auc', best_test_metrics.get('roc_auc', 0.0)):.4f}**, "
+            f"**Macro PR-AUC of {best_test_metrics.get('macro_pr_auc', best_test_metrics.get('pr_auc', 0.0)):.4f}**, "
+            f"and **Balanced Accuracy of {best_test_metrics.get('balanced_accuracy', 0.0):.4f}**.\n"
+        )
+        class_lbls = best_test_metrics.get("class_labels", [])
+        if class_lbls:
+            md.append(f"Evaluated Target Classes ({len(class_lbls)}): `" + ", ".join([str(c) for c in class_lbls]) + "`\n")
 
     elif problem_type in ("regression", "forecasting") and best_test_metrics:
         md.append("## 4. Final Touchless Holdout Evaluation & Multi-Metric Diagnostics")
@@ -389,31 +419,64 @@ def generate_full_markdown_report(
         insights_by_sec[sec].append(b)
 
     # Add default structured items if any pillar is empty
+    # Add default structured items if any pillar is empty
     if not insights_by_sec["7.1 Observed Facts"]:
-        insights_by_sec["7.1 Observed Facts"].append({
-            "title": f"Dataset Class Distribution ({dataset_name})",
-            "finding": f"The empirical dataset contains {row_count:,} records with a positive target base rate of {prevalence*100:.2f}%.",
-            "evidence": f"{row_count:,} total instances, {col_count} features.",
-            "confidence": "High"
-        })
+        if problem_type == "classification":
+            insights_by_sec["7.1 Observed Facts"].append({
+                "title": f"Dataset Class Distribution ({dataset_name})",
+                "finding": f"The empirical dataset contains {row_count:,} records with a positive target base rate of {prevalence*100:.2f}%.",
+                "evidence": f"{row_count:,} total instances, {col_count} features.",
+                "confidence": "High"
+            })
+        else:
+            insights_by_sec["7.1 Observed Facts"].append({
+                "title": f"Dataset Structural Profile ({dataset_name})",
+                "finding": f"The empirical dataset contains {row_count:,} records across {col_count} attributes targeting continuous variable '{target_column}'.",
+                "evidence": f"{row_count:,} total instances, {col_count} features.",
+                "confidence": "High"
+            })
 
     if not insights_by_sec["7.2 Model-Derived Evidence"]:
         top_f_str = rankings[0]['feature'] if rankings else 'Key Feature'
-        insights_by_sec["7.2 Model-Derived Evidence"].append({
-            "title": f"Predictive Discriminability by {best_model_name}",
-            "finding": f"The leak-free model achieved holdout ROC-AUC of {best_test_metrics.get('roc_auc', 0.0):.4f} and PR-AUC of {best_test_metrics.get('pr_auc', 0.0):.4f}, with '{top_f_str}' as the strongest predictive driver.",
-            "evidence": f"PR-AUC: {best_test_metrics.get('pr_auc', 0.0):.4f}, ROC-AUC: {best_test_metrics.get('roc_auc', 0.0):.4f}.",
-            "confidence": "High"
-        })
+        if problem_type == "classification":
+            insights_by_sec["7.2 Model-Derived Evidence"].append({
+                "title": f"Predictive Discriminability by {best_model_name}",
+                "finding": f"The leak-free model achieved holdout ROC-AUC of {best_test_metrics.get('roc_auc', 0.0):.4f} and PR-AUC of {best_test_metrics.get('pr_auc', 0.0):.4f}, with '{top_f_str}' as the strongest predictive driver.",
+                "evidence": f"PR-AUC: {best_test_metrics.get('pr_auc', 0.0):.4f}, ROC-AUC: {best_test_metrics.get('roc_auc', 0.0):.4f}.",
+                "confidence": "High"
+            })
+        elif problem_type == "forecasting":
+            insights_by_sec["7.2 Model-Derived Evidence"].append({
+                "title": f"Forecasting Error Performance by {best_model_name}",
+                "finding": f"The leak-free forecaster achieved holdout RMSE of {best_test_metrics.get('rmse', 0.0):.4f} and MAE of {best_test_metrics.get('mae', 0.0):.4f}, with '{top_f_str}' as the strongest predictive driver.",
+                "evidence": f"RMSE: {best_test_metrics.get('rmse', 0.0):.4f}, MAE: {best_test_metrics.get('mae', 0.0):.4f}.",
+                "confidence": "High"
+            })
+        else:
+            insights_by_sec["7.2 Model-Derived Evidence"].append({
+                "title": f"Predictive Fit and Accuracy by {best_model_name}",
+                "finding": f"The leak-free regression model achieved holdout RMSE of {best_test_metrics.get('rmse', 0.0):.4f}, MAE of {best_test_metrics.get('mae', 0.0):.4f}, and R² of {best_test_metrics.get('r2', 0.0):.4f}, with '{top_f_str}' as the strongest predictive driver.",
+                "evidence": f"RMSE: {best_test_metrics.get('rmse', 0.0):.4f}, MAE: {best_test_metrics.get('mae', 0.0):.4f}, R²: {best_test_metrics.get('r2', 0.0):.4f}.",
+                "confidence": "High"
+            })
 
     if not insights_by_sec["7.3 Actionable Recommendations"]:
-        opt_t_val = threshold_analysis.get('operating_threshold', {}).get('threshold', 0.20)
-        insights_by_sec["7.3 Actionable Recommendations"].append({
-            "title": "Calibrated Decision Threshold Deployment",
-            "finding": f"Operationalize the model at the locked decision threshold of {opt_t_val:.2f} to balance positive-case capture and precision according to operational constraints.",
-            "evidence": f"Operating cutoff achieves {threshold_analysis.get('operating_threshold', {}).get('recall', 0.0)*100:.1f}% capture rate.",
-            "confidence": "High"
-        })
+        if problem_type == "classification" and is_binary:
+            opt_t_val = threshold_analysis.get('operating_threshold', {}).get('threshold', 0.20)
+            insights_by_sec["7.3 Actionable Recommendations"].append({
+                "title": "Calibrated Decision Threshold Deployment",
+                "finding": f"Operationalize the model at the locked decision threshold of {opt_t_val:.2f} to balance positive-case capture and precision according to operational constraints.",
+                "evidence": f"Operating cutoff achieves {threshold_analysis.get('operating_threshold', {}).get('recall', 0.0)*100:.1f}% capture rate.",
+                "confidence": "High"
+            })
+        else:
+            top_f_str = rankings[0]['feature'] if rankings else 'Key Drivers'
+            insights_by_sec["7.3 Actionable Recommendations"].append({
+                "title": "Predictive Feature Prioritization Strategy",
+                "finding": f"Prioritize operational validation and data quality monitoring for top predictive drivers (such as '{top_f_str}'), which contribute the largest portion of model predictive weight.",
+                "evidence": f"Top feature '{top_f_str}' accounts for {rankings[0].get('importance_pct', 0.0):.2f}% of predictive weight." if rankings else "Model-derived feature attributions.",
+                "confidence": "High"
+            })
 
     if not insights_by_sec["7.4 Causal Limitations"]:
         insights_by_sec["7.4 Causal Limitations"].append({
@@ -439,20 +502,50 @@ def generate_full_markdown_report(
     md.append(
         "Deploying predictive models into downstream operational workflows carries inherent risks and constraints that must be actively managed:\n"
     )
-    md.append(
-        "1. **Class Asymmetry & Base-Rate Sensitivity:** In skewed distributions, raw accuracy masks critical classification errors. "
-        "Stakeholders must evaluate performance using precision-recall dynamics, PR-AUC, and balanced accuracy rather than relying on overall accuracy.\n"
-        "2. **False-Negative Sensitivity & Impact:** Across diagnostic and detection objectives, False Negatives leave critical positive instances undetected. "
-        "Standard 0.50 thresholds may lead to unacceptable under-capture rates depending on operational error costs.\n"
-        "3. **Operating Threshold Dependence:** Model outputs are estimated class probabilities; operational assignments strictly depend on the selected decision cutoff. "
-        "Shifts in operational tolerance, capacity, or cost matrices necessitate re-evaluating the decision threshold.\n"
-        "4. **Dataset-Specific Generalization & External Validation:** Model performance reflects the cohort distributions and feature measurements present in this dataset. "
-        "Deployment across external cohorts, distinct demographics, or clinical/subgroup settings requires external validation.\n"
-        "5. **Associative Correlation vs. Causal Interventions:** High feature importance or SHAP values denote statistical associations within the training data, not causal mechanisms. "
-        "Interventions or policy changes attempting to alter predictive drivers require controlled experimental validation.\n"
-        "6. **Data Drift & Population Shifts:** Underlying feature distributions and relationship patterns can shift over time. "
-        "Production deployment requires ongoing performance monitoring, covariate drift tracking, and scheduled model auditing.\n"
-    )
+    if problem_type == "classification" and is_binary:
+        md.append(
+            "1. **Class Asymmetry & Base-Rate Sensitivity:** In skewed distributions, raw accuracy masks critical classification errors. "
+            "Stakeholders must evaluate performance using precision-recall dynamics, PR-AUC, and balanced accuracy rather than relying on overall accuracy.\n"
+            "2. **False-Negative Sensitivity & Impact:** Across diagnostic and detection objectives, False Negatives leave critical positive instances undetected. "
+            "Standard 0.50 thresholds may lead to unacceptable under-capture rates depending on operational error costs.\n"
+            "3. **Operating Threshold Dependence:** Model outputs are estimated class probabilities; operational assignments strictly depend on the selected decision cutoff. "
+            "Shifts in operational tolerance, capacity, or cost matrices necessitate re-evaluating the decision threshold.\n"
+            "4. **Dataset-Specific Generalization & External Validation:** Model performance reflects the cohort distributions and feature measurements present in this dataset. "
+            "Deployment across external cohorts, distinct demographics, or clinical/subgroup settings requires external validation.\n"
+            "5. **Associative Correlation vs. Causal Interventions:** High feature importance or SHAP values denote statistical associations within the training data, not causal mechanisms. "
+            "Interventions or policy changes attempting to alter predictive drivers require controlled experimental validation.\n"
+            "6. **Data Drift & Population Shifts:** Underlying feature distributions and relationship patterns can shift over time. "
+            "Production deployment requires ongoing performance monitoring, covariate drift tracking, and scheduled model auditing.\n"
+        )
+    elif problem_type == "classification" and not is_binary:
+        md.append(
+            "1. **Multi-Class Asymmetry & Rare Category Hazards:** Raw accuracy can mask poor recall in minority target classes. "
+            "Operational teams must monitor Macro F1, Macro PR-AUC, and per-class confusion metrics rather than overall accuracy alone.\n"
+            "2. **Decision Boundary & Argmax Sensitivity:** Multi-class predictions rely on selecting the class with the highest probability score. "
+            "Instances with close probability margins across multiple classes should be flagged for secondary review.\n"
+            "3. **Dataset-Specific Generalization & External Validation:** Model performance reflects class proportions and feature patterns in this dataset. "
+            "Deployment across distinct populations or altered category distributions requires re-validation.\n"
+            "4. **Associative Correlation vs. Causal Interventions:** Feature importance and SHAP values reflect statistical associations, not direct intervention levers.\n"
+            "5. **Concept & Category Drift:** Category boundaries and consumer behavior patterns evolve over time. Scheduled retraining and continuous metric monitoring are essential.\n"
+        )
+    elif problem_type == "forecasting":
+        md.append(
+            "1. **Horizon Limit & Error Accumulation:** Forecast accuracy degrades as the projection horizon extends further into the future; monitor multi-step errors closely.\n"
+            "2. **Non-Stationary & Regime Shifts:** Macroeconomic shocks, structural policy changes, or sudden behavioral shifts can disrupt historical lag correlations.\n"
+            "3. **Seasonal & Calendar Anomalies:** Rare holiday alignments or unobserved exogenous disruptions may cause transient forecast spikes or underestimates.\n"
+            "4. **Dataset-Specific Generalization:** Validation reflects historical temporal patterns. Deployment in new regions or market regimes requires re-calibration.\n"
+            "5. **Associative Correlation vs. Causal Interventions:** Lag and trend feature attributions indicate statistical predictive patterns, not direct intervention levers.\n"
+            "6. **Temporal & Distributional Drift:** Underlying time-series distributions evolve over time. Scheduled retraining and continuous tracking are essential.\n"
+        )
+    else:
+        md.append(
+            "1. **Out-of-Bounds & Outlier Sensitivity:** Continuous target estimators can produce elevated error margins when predicting instances outside the historical feature range.\n"
+            "2. **Heteroscedastic Error Distribution:** Error variance may non-uniformly increase at higher target values; inspect residual plots for non-constant variance.\n"
+            "3. **Extreme Value Under-estimation:** Tree-based ensemble regressors bound predictions within training range, preventing linear extrapolation beyond observed targets.\n"
+            "4. **Dataset-Specific Generalization & External Validation:** Model performance reflects the cohort distributions and feature measurements in this dataset. Deployment across novel sub-populations requires validation.\n"
+            "5. **Associative Correlation vs. Causal Interventions:** High feature importance or SHAP values denote statistical associations, not guaranteed causal levers.\n"
+            "6. **Data Drift & Concept Drift:** Underlying feature distributions and relationship boundaries shift over time, necessitating continuous performance monitoring.\n"
+        )
 
     # =========================================================================
     # 9. Generated Visual Artifacts

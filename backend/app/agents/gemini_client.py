@@ -144,11 +144,14 @@ Only return valid JSON.
         baseline_acc = round(max(prev, 1.0 - prev) * 100, 1) if prev > 0 else 50.0
         objective_desc = locked_th_info.get("objective", "optimised under stated objective")
 
+        is_binary = test_metrics.get("is_binary", True)
+
         if self.is_active:
-            prompt = f"""
+            if problem_type == "classification" and is_binary:
+                prompt = f"""
 You are AutoDS Business Insight Engine.
 Dataset: {dataset_name}
-Task: {problem_type}
+Task: {problem_type} (Binary Classification)
 Champion Model: {best_model_name}
 Top Predictive Drivers: {features_str}
 
@@ -163,6 +166,70 @@ Key Quantitative Ground Truth:
 
 Generate 4 structured business insights adhering strictly to the 4 pillars below.
 CRITICAL CONSTRAINT: You MUST cite ONLY the exact locked decision threshold ({opt_thresh:.2f}), exact holdout recall ({opt_rec*100:.1f}%), and exact baseline accuracy ({baseline_acc:.1f}%). Do NOT cite arbitrary or unselected thresholds.
+Use strictly non-causal language: refer to 'model-derived predictive associations' or 'predictive drivers', and explicitly state causal boundaries.
+
+Return a JSON array with objects matching:
+{{
+  "category": "observed_facts | model_derived | actionable_recommendations | causal_limitations",
+  "title": "Short descriptive title",
+  "finding": "Clear finding statement with non-causal terminology",
+  "evidence": "Exact metric, percentage, or SHAP value supporting this",
+  "confidence": "High | Moderate"
+}}
+Ensure exactly one item for each category: 'observed_facts', 'model_derived', 'actionable_recommendations', 'causal_limitations'.
+Only return valid JSON array.
+"""
+            elif problem_type == "classification" and not is_binary:
+                f1_macro = test_metrics.get('f1_macro', 0.0)
+                macro_roc = test_metrics.get('macro_roc_auc', test_metrics.get('roc_auc', 0.0))
+                macro_pr = test_metrics.get('macro_pr_auc', test_metrics.get('pr_auc', 0.0))
+                bal_acc = test_metrics.get('balanced_accuracy', 0.0)
+                class_lbls = test_metrics.get('class_labels', [])
+                prompt = f"""
+You are AutoDS Business Insight Engine.
+Dataset: {dataset_name}
+Task: {problem_type} (Multi-Class Classification, {len(class_lbls)} classes: {class_lbls})
+Champion Model: {best_model_name}
+Top Predictive Drivers: {features_str}
+
+Key Quantitative Ground Truth (Multi-Class Evaluation):
+- Test Macro F1 Score: {f1_macro:.4f}
+- Test Macro ROC-AUC: {macro_roc:.4f}
+- Test Macro PR-AUC: {macro_pr:.4f}
+- Test Balanced Accuracy: {bal_acc:.4f}
+- Decision Strategy: Highest-Probability Class Assignment (Argmax)
+
+Generate 4 structured business insights adhering strictly to the 4 pillars below.
+CRITICAL CONSTRAINT: This is a MULTI-CLASS classification task. Do NOT mention binary thresholds, 0.50 cutoff, or positive/negative recall. Cite Macro F1 ({f1_macro:.4f}), Macro ROC-AUC ({macro_roc:.4f}), or Balanced Accuracy ({bal_acc:.4f}).
+Use strictly non-causal language: refer to 'model-derived predictive associations' or 'predictive drivers', and explicitly state causal boundaries.
+
+Return a JSON array with objects matching:
+{{
+  "category": "observed_facts | model_derived | actionable_recommendations | causal_limitations",
+  "title": "Short descriptive title",
+  "finding": "Clear finding statement with non-causal terminology",
+  "evidence": "Exact metric, percentage, or SHAP value supporting this",
+  "confidence": "High | Moderate"
+}}
+Ensure exactly one item for each category: 'observed_facts', 'model_derived', 'actionable_recommendations', 'causal_limitations'.
+Only return valid JSON array.
+"""
+            else:
+                prompt = f"""
+You are AutoDS Business Insight Engine.
+Dataset: {dataset_name}
+Task: {problem_type}
+Champion Model: {best_model_name}
+Top Predictive Drivers: {features_str}
+
+Key Quantitative Ground Truth (Regression/Forecasting Evaluation):
+- Test RMSE: {test_metrics.get('rmse', 0.0):.4f}
+- Test MAE: {test_metrics.get('mae', 0.0):.4f}
+- Test R² Score: {test_metrics.get('r2', 0.0):.4f}
+- Test Median AE: {test_metrics.get('median_ae', 0.0):.4f}
+
+Generate 4 structured business insights adhering strictly to the 4 pillars below.
+CRITICAL CONSTRAINT: This is a {problem_type.upper()} task. Do NOT mention classification, accuracy, prevalence, or decision thresholds. Cite RMSE, MAE, or R² where appropriate.
 Use strictly non-causal language: refer to 'model-derived predictive associations' or 'predictive drivers', and explicitly state causal boundaries.
 
 Return a JSON array with objects matching:
@@ -195,10 +262,10 @@ Only return valid JSON array.
                     if isinstance(raw_insights, list) and len(raw_insights) == 4:
                         for ins in raw_insights:
                             cat = ins.get("category", "")
-                            if cat == "actionable_recommendations" and problem_type == "classification":
+                            if cat == "actionable_recommendations" and problem_type == "classification" and is_binary:
                                 ins["finding"] = f"{objective_desc} The operating threshold achieves positive recall of {opt_rec*100:.1f}% ({locked_th_info.get('tp', 'N/A')} true positives), with a shift of {rec_gain_pts:+.1f} percentage points over the 0.50 cutoff."
                                 ins["evidence"] = f"Operating threshold of {opt_thresh:.2f} yields {opt_rec*100:.1f}% positive recall ({locked_th_info.get('tp', 'N/A')} true positives) and F2 of {test_metrics.get('f2_positive', test_metrics.get('f2', 0.0)):.4f}."
-                            elif cat == "observed_facts" and problem_type == "classification":
+                            elif cat == "observed_facts" and problem_type == "classification" and is_binary:
                                 ins["evidence"] = f"Positive prevalence: {prev*100:.2f}%, Majority baseline: {baseline_acc:.1f}%."
                         return raw_insights
             except Exception as e:
@@ -207,7 +274,7 @@ Only return valid JSON array.
         # Deterministic Insight Synthesis grounded in real computed data
         logger.info("Gemini API not used for insights; deterministic fallback used.")
 
-        if problem_type == "classification":
+        if problem_type == "classification" and is_binary:
             roc = test_metrics.get("roc_auc", 0.0)
             pr = test_metrics.get("pr_auc", 0.0)
             f1 = test_metrics.get("f1_positive", test_metrics.get("f1_macro", 0.0))
@@ -241,6 +308,43 @@ Only return valid JSON array.
                     "title": "Predictive Association vs Causal Levers",
                     "finding": f"Statistical importance for '{top_f_name}' and '{second_f_name}' reflects observational predictive associations, not direct causal mechanisms. Operational interventions require experimental validation.",
                     "evidence": "Observational modeling without exogenous instrumental variables.",
+                    "confidence": "High"
+                }
+            ]
+        elif problem_type == "classification" and not is_binary:
+            f1_macro = test_metrics.get("f1_macro", 0.0)
+            macro_roc = test_metrics.get("macro_roc_auc", test_metrics.get("roc_auc", 0.0))
+            macro_pr = test_metrics.get("macro_pr_auc", test_metrics.get("pr_auc", 0.0))
+            bal_acc = test_metrics.get("balanced_accuracy", 0.0)
+            class_lbls = test_metrics.get("class_labels", [])
+
+            return [
+                {
+                    "category": "observed_facts",
+                    "title": f"Multi-Class Distribution in {dataset_name}",
+                    "finding": f"The target variable spans {len(class_lbls)} discrete classes ({class_lbls}), evaluated across a multi-class assignment space.",
+                    "evidence": f"Classes: {class_lbls}, Count: {len(class_lbls)}.",
+                    "confidence": "High"
+                },
+                {
+                    "category": "model_derived",
+                    "title": f"Multi-Class Discrimination & Key Driver '{top_f_name}'",
+                    "finding": f"The champion model ({best_model_name}) achieves strong multi-class separation with Macro F1 of {f1_macro:.4f} and Macro ROC-AUC of {macro_roc:.4f}.",
+                    "evidence": f"Macro F1: {f1_macro:.4f}, Macro ROC-AUC: {macro_roc:.4f}, Balanced Accuracy: {bal_acc:.4f}.",
+                    "confidence": "High"
+                },
+                {
+                    "category": "actionable_recommendations",
+                    "title": "Argmax Multi-Class Decision Deployment",
+                    "finding": f"Deploy the model using highest-probability class assignment (argmax) and prioritize data quality checks on key drivers like '{top_f_name}'.",
+                    "evidence": f"Macro F1 of {f1_macro:.4f} achieved across all {len(class_lbls)} target categories.",
+                    "confidence": "High"
+                },
+                {
+                    "category": "causal_limitations",
+                    "title": "Predictive Associations vs Causal Levers",
+                    "finding": f"Feature attributions for '{top_f_name}' and '{second_f_name}' reflect statistical correlations in multi-class prediction, not guaranteed causal levers.",
+                    "evidence": "Observational multi-class modeling without exogenous causal instruments.",
                     "confidence": "High"
                 }
             ]

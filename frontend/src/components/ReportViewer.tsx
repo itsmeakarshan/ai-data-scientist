@@ -25,17 +25,52 @@ interface ReportViewerProps {
   onDeleteReport?: (report: Report) => void;
 }
 
-const formatPlotTitle = (path: string, championModel?: string): string => {
+export const formatPlotTitle = (path: string, championModel?: string): string => {
   const filename = path.split('/').pop() || '';
   const prefix = championModel ? `${championModel} — ` : '';
-  if (/_roc(\.png)?$/i.test(filename)) return `${prefix}ROC Curve (Receiver Operating Characteristic)`;
-  if (/_pr(\.png)?$/i.test(filename)) return `${prefix}Precision-Recall Curve (PR-AUC)`;
-  if (/_cm(\.png)?$/i.test(filename)) return `${prefix}Confusion Matrix (Locked Operating Threshold)`;
-  if (/_feature_imp(\.png)?$/i.test(filename)) return `${prefix}Top Predictive Drivers (Feature Importance)`;
-  if (/_residuals(\.png)?$/i.test(filename) || /_resid(\.png)?$/i.test(filename)) return `${prefix}Residual Diagnostics & Error Distribution`;
-  if (/_actual_vs_pred(\.png)?$/i.test(filename) || /_act_pred(\.png)?$/i.test(filename)) return `${prefix}Actual vs Predicted / Forecast Comparison`;
-  if (/_correlation(\.png)?$/i.test(filename) || /_corr(\.png)?$/i.test(filename)) return 'Numeric Feature Correlation Matrix';
+  if (/_roc(\.png)?$/i.test(filename)) return `${prefix}ROC Curve`;
+  if (/_pr(\.png)?$/i.test(filename)) return `${prefix}Precision-Recall Curve`;
+  if (/_cm(\.png)?$/i.test(filename)) return `${prefix}Confusion Matrix`;
+  if (/_feature_imp(\.png)?$/i.test(filename)) return `${prefix}Top Predictive Drivers`;
+  if (/_residuals(\.png)?$/i.test(filename) || /_resid(\.png)?$/i.test(filename)) return `${prefix}Residual Diagnostics`;
+  if (/_actual_vs_pred(\.png)?$/i.test(filename) || /_act_pred(\.png)?$/i.test(filename)) return `${prefix}Actual vs Predicted`;
+  if (/_correlation(\.png)?$/i.test(filename) || /_corr(\.png)?$/i.test(filename)) return 'Feature Correlation Matrix';
   return filename || 'Diagnostic Visual Plot';
+};
+
+export const stripMarkdown = (text: string | null | undefined): string => {
+  if (!text) return '';
+  return text.replace(/\*\*/g, '').replace(/`/g, '').trim();
+};
+
+export const renderFormattedText = (text: string | null | undefined): React.ReactNode => {
+  if (!text) return null;
+  const tokens = text.split(/(\*\*[^*]+\*\*|`[^`]+`|\*[^*]+\*)/g);
+  return tokens.map((token, index) => {
+    if (!token) return null;
+    if (token.startsWith('**') && token.endsWith('**') && token.length >= 4) {
+      return (
+        <strong key={index} className="font-bold text-slate-900">
+          {token.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (token.startsWith('`') && token.endsWith('`') && token.length >= 2) {
+      return (
+        <code key={index} className="font-mono bg-slate-100 text-indigo-700 px-1 py-0.5 rounded text-[10px]">
+          {token.slice(1, -1)}
+        </code>
+      );
+    }
+    if (token.startsWith('*') && token.endsWith('*') && token.length >= 2) {
+      return (
+        <em key={index} className="italic text-slate-700">
+          {token.slice(1, -1)}
+        </em>
+      );
+    }
+    return token.replace(/\*\*/g, '').replace(/`/g, '');
+  });
 };
 
 const ReportPlotImage: React.FC<{
@@ -50,12 +85,14 @@ const ReportPlotImage: React.FC<{
 
   return (
     <div className="rounded-2xl border border-slate-200/90 p-3.5 bg-slate-50 space-y-2 flex flex-col justify-between hover:border-slate-300 transition shadow-2xs group">
-      <div className="flex items-center justify-between text-[11px] text-slate-700 px-1 gap-2">
-        <span className="truncate font-bold tracking-tight">{title}</span>
+      <div className="flex items-center justify-between text-[11px] text-slate-700 px-1 gap-2 min-h-[24px]">
+        <span className="font-bold tracking-tight text-slate-800 break-words leading-tight flex-1">
+          {title}
+        </span>
         <button
           type="button"
           onClick={() => onExpand(imgUrl, title)}
-          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-50 border border-slate-200 text-indigo-600 hover:border-indigo-300 text-[11px] font-sans font-bold shadow-2xs transition shrink-0 cursor-pointer"
+          className="no-print inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white hover:bg-indigo-50 border border-slate-200 text-indigo-600 hover:border-indigo-300 text-[11px] font-sans font-bold shadow-2xs transition shrink-0 cursor-pointer"
         >
           <span>Expand</span>
           <Maximize2 className="w-3.5 h-3.5" />
@@ -111,9 +148,19 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
   const rawMd = report.full_report_markdown || '';
 
   // Extract problem type (classification, regression, forecasting)
-  const problemTypeMatch = rawMd.match(/\*\*Task Type:\*\*\s*([A-Za-z0-9_-]+)/i) || rawMd.match(/completed\s+([A-Za-z0-9_-]+)\s+pipeline/i);
-  const problemType = (methodology.problem_type || (report as any).problem_type || (problemTypeMatch ? problemTypeMatch[1] : '')).toLowerCase();
-  const isClassification = problemType === 'classification' || rawMd.includes('Classification & Decision Threshold Analysis') || rawMd.includes('Threshold Optimization');
+  const taskTypeMatch = rawMd.match(/\*\*Task Type:\*\*\s*([A-Za-z0-9_-]+)/i) || rawMd.match(/completed\s+([A-Za-z0-9_-]+)\s+pipeline/i);
+  const problemType = (
+    methodology.problem_type ||
+    (report as any).problem_type ||
+    (taskTypeMatch ? taskTypeMatch[1] : '')
+  ).toLowerCase();
+
+  const isForecasting = problemType === 'forecasting' || problemType.includes('forecast');
+  const isRegression = problemType === 'regression' || (!isForecasting && (rawMd.includes('RMSE') || rawMd.includes('Regression')));
+  const isClassification = problemType === 'classification' || (!isRegression && !isForecasting && (rawMd.includes('Classification & Decision Threshold Analysis') || rawMd.includes('ROC-AUC') || rawMd.includes('Multiclass')));
+
+  const isMulticlass = isClassification && (rawMd.includes('Multiclass') || rawMd.includes('Macro F1') || rawMd.includes('Macro ROC-AUC') || rawMd.includes('classes 3,4,5') || (methodology as any).is_binary === false);
+  const isBinary = isClassification && !isMulticlass;
 
   // Extract champion model name
   const championMatch = report.summary_markdown?.match(/Best Model:\s*([A-Za-z0-9_-]+)/) || rawMd.match(/champion model selected is \*\*([^*]+)\*\*/i);
@@ -134,6 +181,21 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
   const extractObjective = () => {
     const m = rawMd.match(/\*\*Objective:\*\*\s*(.+)/);
     return m ? m[1].trim() : report.summary_markdown || 'Autonomous model training and evaluation';
+  };
+
+  const extractTargetColumn = () => {
+    const m = rawMd.match(/\*\*Target Column:\*\*\s*`?([A-Za-z0-9_-]+)`?/i) || rawMd.match(/target\s+column\s+`?([A-Za-z0-9_-]+)`?/i);
+    return m ? m[1].trim() : methodology.target_column || 'Target';
+  };
+
+  const extractPrevalence = () => {
+    const m = rawMd.match(/prevalence[^\d]*([\d.]+%)/i) || rawMd.match(/positive[^\d]*([\d.]+%)/i);
+    return m ? m[1] : undefined;
+  };
+
+  const extractOperatingThreshold = () => {
+    const m = rawMd.match(/operating threshold[:\s]*([\d.]+)/i) || rawMd.match(/threshold[:\s]*([\d.]+)/i);
+    return m ? m[1] : undefined;
   };
 
   const extractSummaryParagraphs = () => {
@@ -182,14 +244,24 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
 
   // Extract Section 8 Operational Risks
   const extractOperationalRisks = () => {
-    const m = rawMd.match(/## 8\. Model Limitations & Operational Risk Analysis\s*\n+([\s\S]+?)(?=\n##|\Z)/);
+    const m = rawMd.match(/## \d+\.\s*Model Limitations & Operational Risk Analysis\s*\n+([\s\S]+?)(?=\n##|\Z)/i);
     if (!m) return [];
-    const lines = m[1].split('\n').filter(l => /^\d+\.\s*\*\*/.test(l.trim()));
+    const lines = m[1].split('\n').filter(l => /^\d+\.\s*/.test(l.trim()));
     return lines.map(line => {
-      const parts = line.replace(/^\d+\.\s*/, '').split('**');
-      const title = parts.length > 1 ? parts[1].replace(/:$/, '').trim() : 'Operational Risk';
-      const text = parts.length > 2 ? parts.slice(2).join('').replace(/^:\s*/, '').trim() : line;
-      return { title, text };
+      const cleanLine = line.replace(/^\d+\.\s*/, '').trim();
+      if (cleanLine.startsWith('**')) {
+        const endBoldIdx = cleanLine.indexOf('**', 2);
+        if (endBoldIdx !== -1) {
+          const title = cleanLine.slice(2, endBoldIdx).replace(/:$/, '').trim();
+          const text = cleanLine.slice(endBoldIdx + 2).replace(/^:\s*/, '').trim();
+          return { title: stripMarkdown(title), text: stripMarkdown(text) || text };
+        }
+      }
+      const parts = cleanLine.split(':');
+      return {
+        title: stripMarkdown(parts[0]),
+        text: stripMarkdown(parts.slice(1).join(':')) || cleanLine
+      };
     });
   };
 
@@ -197,7 +269,26 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
   const summaryParagraphs = extractSummaryParagraphs();
   const imbalanceAlert = extractImbalanceAlert();
 
-  // Export PDF Handler
+  // Dynamic section numbers for PDF view (contiguous with zero missing numbers)
+  let pdfCounter = 1;
+  const pdfSecSummary = pdfCounter++;
+  const pdfSecLeaderboard = pdfCounter++;
+  const pdfSecThreshold = isBinary ? pdfCounter++ : null;
+  const pdfSecCritic = pdfCounter++;
+  const pdfSecVisuals = (report.artifact_paths && report.artifact_paths.length > 0) ? pdfCounter++ : null;
+  const pdfSecInsights = pdfCounter++;
+  const pdfSecRisks = pdfCounter++;
+
+  // Dynamic section numbers for Interactive Tabs view
+  let tabCounter = 1;
+  const tabSecSummary = tabCounter++;
+  const tabSecLeaderboard = tabCounter++;
+  const tabSecThreshold = isBinary ? tabCounter++ : null;
+  const tabSecCritic = tabCounter++;
+  const tabSecInsights = tabCounter++;
+  const tabSecRisks = tabCounter++;
+
+  // Export PDF Handler with Per-Page Pagination
   const handleDownloadPdf = async () => {
     setIsExportingPdf(true);
     try {
@@ -207,7 +298,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
       if (!element) return;
 
       const opt = {
-        margin: [0.35, 0.35, 0.35, 0.35] as [number, number, number, number],
+        margin: [0.35, 0.35, 0.45, 0.35] as [number, number, number, number],
         filename: `AutoDS_Executive_Report_${report.id.substring(0, 8)}.pdf`,
         image: { type: 'jpeg' as const, quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false, letterRendering: true },
@@ -215,7 +306,39 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
 
-      await (html2pdf() as any).set(opt).from(element).save();
+      await (html2pdf() as any)
+        .set(opt)
+        .from(element)
+        .toPdf()
+        .get('pdf')
+        .then((pdf: any) => {
+          const totalPages = pdf.internal.getNumberOfPages();
+          for (let i = 1; i <= totalPages; i++) {
+            pdf.setPage(i);
+            pdf.setFontSize(8);
+            pdf.setTextColor(140, 140, 140);
+
+            const pageSize = pdf.internal.pageSize;
+            const pageWidth = pageSize.getWidth ? pageSize.getWidth() : pageSize.width;
+            const pageHeight = pageSize.getHeight ? pageSize.getHeight() : pageSize.height;
+
+            // Left footer letterhead info
+            pdf.text(
+              'AutoDS Autonomous Data Science Engine • Executive Audit Report',
+              0.35,
+              pageHeight - 0.2
+            );
+
+            // Right footer: Dynamic Page X of Y on every single page
+            pdf.text(
+              `Confidential & Audit-Ready • Page ${i} of ${totalPages}`,
+              pageWidth - 0.35,
+              pageHeight - 0.2,
+              { align: 'right' }
+            );
+          }
+        })
+        .save();
     } catch (err) {
       console.error('Programmatic PDF export failed, launching print dialog fallback:', err);
       window.print();
@@ -346,7 +469,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               {/* Title Section */}
               <div className="pt-2">
                 <h1 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">
-                  {report.title}
+                  {stripMarkdown(report.title)}
                 </h1>
                 <p className="text-xs text-slate-600 mt-1 font-medium">
                   Audit-ready Machine Learning evaluation report separating Observed Facts, Model Evidence, Actionable Recommendations, and Causal Constraints.
@@ -357,19 +480,23 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Evaluation Objective</span>
-                  <span className="font-bold text-slate-800 text-[11px] line-clamp-1">{extractObjective()}</span>
+                  <span className="font-bold text-slate-800 text-[11px] line-clamp-1">{renderFormattedText(extractObjective())}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Target Column</span>
+                  <span className="font-mono font-bold text-indigo-700 text-[11px] truncate block">{stripMarkdown(extractTargetColumn())}</span>
                 </div>
                 <div>
                   <span className="text-[10px] uppercase font-bold text-slate-400 block">Audit Status</span>
                   <span className="font-extrabold text-emerald-700 text-[11px]">{criticStatus} (0 Leakage)</span>
                 </div>
                 <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Prevalence (Base Rate)</span>
-                  <span className="font-mono font-bold text-slate-800 text-[11px]">11.27% (Imbalanced)</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-slate-400 block">Threshold Guarantee</span>
-                  <span className="font-mono font-bold text-indigo-700 text-[11px]">Locked 0.15 Cutoff</span>
+                  <span className="text-[10px] uppercase font-bold text-slate-400 block">
+                    {isBinary ? 'Threshold Guarantee' : isMulticlass ? 'Class Selection Strategy' : isForecasting ? 'Validation Strategy' : 'Evaluation Guarantee'}
+                  </span>
+                  <span className="font-mono font-bold text-slate-800 text-[11px]">
+                    {isBinary ? (extractOperatingThreshold() ? `Locked Cutoff (${stripMarkdown(extractOperatingThreshold())})` : 'OOF Selected') : isMulticlass ? 'Argmax Probabilities' : 'Untouched Holdout Eval'}
+                  </span>
                 </div>
               </div>
             </div>
@@ -379,7 +506,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                 <span className="w-2 h-5 rounded-full bg-emerald-600"></span>
                 <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
-                  1. Executive Summary & Problem Formulation
+                  {pdfSecSummary}. Executive Summary & Problem Formulation
                 </h3>
               </div>
 
@@ -389,7 +516,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                 </p>
                 {summaryParagraphs.map((p, idx) => (
                   <p key={idx} className="text-xs text-slate-700 leading-relaxed">
-                    {p}
+                    {renderFormattedText(p)}
                   </p>
                 ))}
               </div>
@@ -400,7 +527,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                     <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                     <span className="text-xs font-extrabold uppercase text-amber-900">Target Class Imbalance Diagnostic Alert</span>
                   </div>
-                  <p className="text-xs text-amber-900/90 leading-relaxed font-medium">{imbalanceAlert}</p>
+                  <p className="text-xs text-amber-900/90 leading-relaxed font-medium">{renderFormattedText(imbalanceAlert)}</p>
                 </div>
               )}
             </div>
@@ -410,7 +537,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                 <span className="w-2 h-5 rounded-full bg-indigo-600"></span>
                 <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
-                  2. Candidate Model Leaderboard & Multi-Metric Evaluation
+                  {pdfSecLeaderboard}. Candidate Model Leaderboard & Multi-Metric Evaluation
                 </h3>
               </div>
 
@@ -501,13 +628,13 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               </div>
             </div>
 
-            {/* PDF Section 3: Threshold Optimization & Holdout Tradeoff (Classification Only) */}
-            {isClassification && (
+            {/* PDF Section 3: Threshold Optimization & Holdout Tradeoff (Binary Classification Only) */}
+            {isBinary && (
               <div className="space-y-4 pt-2">
                 <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                   <span className="w-2 h-5 rounded-full bg-teal-600"></span>
                   <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
-                    3. Classification Threshold Selection & Touchless Holdout Analysis
+                    {pdfSecThreshold}. Classification Threshold Selection & Touchless Holdout Analysis
                   </h3>
                 </div>
 
@@ -545,12 +672,12 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               </div>
             )}
 
-            {/* PDF Section 4: Methodological Critic Audit */}
+            {/* PDF Section 4 (or 3): Methodological Critic Audit */}
             <div className="space-y-4 pt-2">
               <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                 <span className="w-2 h-5 rounded-full bg-emerald-600"></span>
                 <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
-                  4. Methodological Critic Audit & Leakage Safeguards
+                  {pdfSecCritic}. Methodological Critic Audit & Leakage Safeguards
                 </h3>
               </div>
 
@@ -559,11 +686,11 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                   {criticFindings.map((f: any, idx: number) => (
                     <div key={idx} className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
                       <div className="flex items-center justify-between font-bold">
-                        <span className="text-rose-700 uppercase">{f.issue_type}</span>
+                        <span className="text-rose-700 uppercase">{stripMarkdown(f.issue_type)}</span>
                         <span className="text-emerald-700 font-mono text-[10px]">Remediation Applied</span>
                       </div>
-                      <p className="text-slate-800">{f.description}</p>
-                      <p className="text-slate-500 font-mono text-[10px]">{f.remediation}</p>
+                      <p className="text-slate-800">{renderFormattedText(f.description)}</p>
+                      <p className="text-slate-500 font-mono text-[10px]">{renderFormattedText(f.remediation)}</p>
                     </div>
                   ))}
                 </div>
@@ -578,13 +705,13 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               )}
             </div>
 
-            {/* PDF Section 5: Visual Diagnostic Plots */}
+            {/* PDF Section 5 (or 4): Visual Diagnostic Plots */}
             {report.artifact_paths && report.artifact_paths.length > 0 && (
               <div className="space-y-4 pt-2">
                 <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                   <span className="w-2 h-5 rounded-full bg-indigo-600"></span>
                   <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
-                    5. Generated Visual Diagnostics
+                    {pdfSecVisuals}. Generated Visual Diagnostics
                   </h3>
                 </div>
 
@@ -604,12 +731,12 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               </div>
             )}
 
-            {/* PDF Section 6: 4-Pillar Evidence-Backed Insights */}
+            {/* PDF Section 6 (or 5): 4-Pillar Evidence-Backed Insights */}
             <div className="space-y-4 pt-2">
               <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                 <span className="w-2 h-5 rounded-full bg-violet-600"></span>
                 <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
-                  6. 4-Pillar Evidence-Backed Business Insights
+                  {pdfSecInsights}. 4-Pillar Evidence-Backed Business Insights
                 </h3>
               </div>
 
@@ -636,12 +763,12 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                         <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border ${badgeStyle}`}>
                           {pillarTitle}
                         </span>
-                        <h4 className="font-bold text-slate-900">{ins.title}</h4>
-                        <p className="text-slate-600 text-[11px] leading-relaxed">{ins.finding}</p>
+                        <h4 className="font-bold text-slate-900">{stripMarkdown(ins.title)}</h4>
+                        <p className="text-slate-600 text-[11px] leading-relaxed">{renderFormattedText(ins.finding)}</p>
                       </div>
                       <div className="pt-1.5 border-t border-slate-200">
                         <span className="text-[10px] text-emerald-700 font-mono font-semibold block">
-                          Evidence: {ins.evidence}
+                          Evidence: {stripMarkdown(ins.evidence)}
                         </span>
                       </div>
                     </div>
@@ -650,29 +777,29 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               </div>
             </div>
 
-            {/* PDF Section 7: Operational Risks */}
+            {/* PDF Section 7 (or 6): Operational Risks */}
             <div className="space-y-4 pt-2">
               <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
                 <span className="w-2 h-5 rounded-full bg-amber-600"></span>
                 <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
-                  7. Operational Risk Analysis & Deployment Boundaries
+                  {pdfSecRisks}. Operational Risk Analysis & Deployment Boundaries
                 </h3>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
                 {operationalRisks.slice(0, 4).map((risk, idx) => (
                   <div key={idx} className="p-3 rounded-xl bg-amber-50/50 border border-amber-200/80 space-y-1">
-                    <h4 className="font-bold text-amber-950 text-[11px]">{risk.title}</h4>
-                    <p className="text-slate-600 text-[11px] leading-relaxed">{risk.text}</p>
+                    <h4 className="font-bold text-amber-950 text-[11px]">{stripMarkdown(risk.title)}</h4>
+                    <p className="text-slate-600 text-[11px] leading-relaxed">{renderFormattedText(risk.text)}</p>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* PDF Document Footer Letterhead */}
-            <div className="border-t-2 border-slate-900 pt-4 flex items-center justify-between text-[10px] text-slate-400 font-mono">
+            <div className="border-t-2 border-slate-900 pt-4 flex items-center justify-between text-[10px] text-slate-400 font-mono no-print">
               <span>AutoDS Autonomous Data Science Engine • Executive Audit Report</span>
-              <span>Confidential & Audit-Ready • Page 1 of 1</span>
+              <span>Confidential & Audit-Ready • Multi-Page Verified</span>
             </div>
           </div>
         </div>
@@ -689,7 +816,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               { id: 'all', label: 'Complete Report', icon: Layers },
               { id: 'summary', label: 'Executive Summary', icon: Sparkles },
               { id: 'leaderboard', label: 'Model Leaderboard', icon: BarChart3 },
-              ...(isClassification ? [{ id: 'threshold', label: 'Threshold & Holdout', icon: Activity }] : []),
+              ...(isBinary ? [{ id: 'threshold', label: 'Threshold & Holdout', icon: Activity }] : []),
               { id: 'critic', label: 'Critic Audit', icon: ShieldCheck },
               { id: 'insights', label: '4-Pillar Insights', icon: TrendingUp },
               { id: 'risks', label: 'Operational Risks', icon: AlertTriangle },
@@ -721,7 +848,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                     <Sparkles className="w-5 h-5 text-indigo-600" />
-                    1. Executive Summary & Objective
+                    {tabSecSummary}. Executive Summary & Objective
                   </h2>
                   <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
                     Verified Leak-Free
@@ -731,20 +858,36 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-1">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Autonomous Objective</span>
-                    <p className="text-xs font-semibold text-slate-900">{extractObjective()}</p>
+                    <p className="text-xs font-semibold text-slate-900">{renderFormattedText(extractObjective())}</p>
                   </div>
 
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Target Base Rate (Prevalence)</span>
-                    <p className="text-lg font-black text-slate-900 font-mono">11.27% <span className="text-xs font-normal text-slate-500">(11 in 100)</span></p>
-                    <p className="text-[10px] text-amber-700 font-medium">Class Imbalance Detected</p>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Target Feature Column</span>
+                    <p className="text-sm font-black text-indigo-950 font-mono">{stripMarkdown(extractTargetColumn())}</p>
+                    <p className="text-[10px] text-slate-500 font-medium">Task: {problemType || (isRegression ? 'Regression' : isForecasting ? 'Forecasting' : 'Classification')}</p>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-1">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Threshold Selection Guarantee</span>
-                    <p className="text-xs font-bold text-slate-900">OOF Validation Selected → Touchless Holdout Eval</p>
-                    <p className="text-[10px] text-emerald-700">Zero test-set label leakage</p>
-                  </div>
+                  {isBinary ? (
+                    <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Target Base Rate (Prevalence)</span>
+                      <p className="text-lg font-black text-slate-900 font-mono">
+                        {stripMarkdown(extractPrevalence()) || 'Imbalanced'}
+                      </p>
+                      <p className="text-[10px] text-amber-700 font-medium">Class Imbalance Diagnostic</p>
+                    </div>
+                  ) : isMulticlass ? (
+                    <div className="p-4 rounded-2xl bg-indigo-50/50 border border-indigo-100 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500">Multi-Class Decision Strategy</span>
+                      <p className="text-xs font-bold text-slate-900">Highest-Probability Class Assignment (Argmax)</p>
+                      <p className="text-[10px] text-indigo-700 font-medium">Macro-Averaged Diagnostic Benchmark</p>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 space-y-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Leakage & Evaluation Safeguard</span>
+                      <p className="text-xs font-bold text-slate-900">Untouched Holdout Evaluation</p>
+                      <p className="text-[10px] text-emerald-700">Zero test-set label contamination</p>
+                    </div>
+                  )}
                 </div>
 
                 {imbalanceAlert && (
@@ -753,7 +896,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                       <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                       <h4 className="text-xs font-extrabold uppercase tracking-wider text-amber-800">Class Imbalance Diagnostic Alert</h4>
                     </div>
-                    <p className="text-xs leading-relaxed text-amber-800">{imbalanceAlert}</p>
+                    <p className="text-xs leading-relaxed text-amber-800">{renderFormattedText(imbalanceAlert)}</p>
                   </div>
                 )}
               </div>
@@ -765,7 +908,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                     <BarChart3 className="w-5 h-5 text-indigo-600" />
-                    2. Model Leaderboard & Benchmark Table
+                    {tabSecLeaderboard}. Model Leaderboard & Benchmark Table
                   </h2>
                 </div>
 
@@ -844,13 +987,13 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               </div>
             )}
 
-            {/* Section 3: Threshold & Holdout Analysis (Classification Only) */}
-            {isClassification && (activeTab === 'all' || activeTab === 'threshold') && (
+            {/* Section 3: Threshold & Holdout Analysis (Binary Classification Only) */}
+            {isBinary && (activeTab === 'all' || activeTab === 'threshold') && (
               <div className="glass-panel p-6 rounded-3xl space-y-6">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                     <Activity className="w-5 h-5 text-indigo-600" />
-                    3. Classification Threshold Selection & Touchless Holdout Analysis
+                    {tabSecThreshold}. Classification Threshold Selection & Touchless Holdout Analysis
                   </h2>
                 </div>
 
@@ -890,13 +1033,13 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               </div>
             )}
 
-            {/* Section 4: Critic Audit */}
+            {/* Section 4 (or 3): Critic Audit */}
             {(activeTab === 'all' || activeTab === 'critic') && (
               <div className="glass-panel p-6 rounded-3xl space-y-6">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                     <ShieldCheck className="w-5 h-5 text-indigo-600" />
-                    4. Methodological Critic Audit & Leakage Protection
+                    {tabSecCritic}. Methodological Critic Audit & Leakage Protection
                   </h2>
                   <span className="px-3 py-1 rounded-full text-xs font-extrabold uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
                     Status: {criticStatus}
@@ -909,13 +1052,13 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                       <div key={idx} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-2">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md border bg-amber-100 text-amber-800 border-amber-300">
-                            {finding.issue_type}
+                            {stripMarkdown(finding.issue_type)}
                           </span>
                           <span className="text-[10px] font-mono text-slate-400">Finding #{idx + 1}</span>
                         </div>
-                        <p className="text-xs text-slate-800 font-semibold">{finding.description}</p>
+                        <p className="text-xs text-slate-800 font-semibold">{renderFormattedText(finding.description)}</p>
                         <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 font-mono">
-                          Remediation Executed: {finding.remediation}
+                          Remediation Executed: {renderFormattedText(finding.remediation)}
                         </div>
                       </div>
                     ))}
@@ -932,13 +1075,13 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               </div>
             )}
 
-            {/* Section 5 & 6: Explainability & 4-Pillar Insights */}
+            {/* Section 5 (or 4): Explainability & 4-Pillar Insights */}
             {(activeTab === 'all' || activeTab === 'insights') && (
               <div className="glass-panel p-6 rounded-3xl space-y-6">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                     <TrendingUp className="w-5 h-5 text-indigo-600" />
-                    5. Model Explainability & 4-Pillar Evidence-Backed Insights
+                    {tabSecInsights}. Model Explainability & 4-Pillar Evidence-Backed Insights
                   </h2>
                 </div>
 
@@ -952,7 +1095,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                           <tr>
                             {explainabilityTable.headers.map((h, hIdx) => (
                               <th key={hIdx} className={`py-3 px-3 ${hIdx === 0 ? 'px-4' : 'text-left'}`}>
-                                {h}
+                                {stripMarkdown(h)}
                               </th>
                             ))}
                           </tr>
@@ -962,7 +1105,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                             <tr key={rIdx} className="hover:bg-slate-50 transition">
                               {row.map((cell, cIdx) => (
                                 <td key={cIdx} className={`px-3 py-2.5 ${cIdx === 0 ? 'px-4 font-mono font-bold text-slate-900' : 'text-slate-700'}`}>
-                                  {cell.replace(/\*\*/g, '')}
+                                  {stripMarkdown(cell)}
                                 </td>
                               ))}
                             </tr>
@@ -1024,12 +1167,12 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                             <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md border ${badgeStyle}`}>
                               {pillarTitle}
                             </span>
-                            <h4 className="font-bold text-sm text-slate-900">{ins.title}</h4>
-                            <p className="text-xs text-slate-600 leading-relaxed">{ins.finding}</p>
+                            <h4 className="font-bold text-sm text-slate-900">{stripMarkdown(ins.title)}</h4>
+                            <p className="text-xs text-slate-600 leading-relaxed">{renderFormattedText(ins.finding)}</p>
                           </div>
                           <div className="pt-2 border-t border-slate-200">
                             <span className="text-[10px] text-emerald-700 font-mono font-semibold block">
-                              Evidence: {ins.evidence}
+                              Evidence: {stripMarkdown(ins.evidence)}
                             </span>
                           </div>
                         </div>
@@ -1040,13 +1183,13 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               </div>
             )}
 
-            {/* Section 7: Operational Risks */}
+            {/* Section 6 (or 5): Operational Risks */}
             {(activeTab === 'all' || activeTab === 'risks') && (
               <div className="glass-panel p-6 rounded-3xl space-y-6">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5 text-amber-600" />
-                    6. Model Limitations & Operational Risk Analysis
+                    {tabSecRisks}. Model Limitations & Operational Risk Analysis
                   </h2>
                 </div>
 
@@ -1054,19 +1197,19 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                   {operationalRisks.length > 0 ? (
                     operationalRisks.map((risk, idx) => (
                       <div key={idx} className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/80 space-y-2">
-                        <h4 className="font-bold text-xs text-amber-900">{risk.title}</h4>
-                        <p className="text-xs text-slate-600 leading-relaxed">{risk.text}</p>
+                        <h4 className="font-bold text-xs text-amber-900">{stripMarkdown(risk.title)}</h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">{renderFormattedText(risk.text)}</p>
                       </div>
                     ))
                   ) : (
-                    (isClassification ? [
+                    (isBinary ? [
                       {
                         title: '1. Base Rate & Imbalance Hazards',
                         text: 'When positive class prevalence is low, raw accuracy creates an illusion of high quality. Operational teams must strictly monitor PR-AUC, Positive Recall, and Positive Precision.'
                       },
                       {
                         title: '2. Decision Threshold Dependence',
-                        text: 'Model predictions are continuous probabilities. Operational actions strictly depend on the operating threshold, which must be recalibrated if sales capacity changes.'
+                        text: 'Model predictions are continuous probabilities. Operational actions strictly depend on the operating threshold, which must be recalibrated if capacity changes.'
                       },
                       {
                         title: '3. Dataset-Specific Generalization',
@@ -1079,6 +1222,27 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                       {
                         title: '5. Temporal & Macro Drift',
                         text: 'External economic indicators and consumer behavior drift over time. Deployment requires periodic performance monitoring and scheduled retraining.'
+                      }
+                    ] : isMulticlass ? [
+                      {
+                        title: '1. Class Asymmetry & Imbalance Hazards',
+                        text: 'Across multi-class targets, raw accuracy can mask misclassifications in rare classes. Evaluate Macro F1, Macro PR-AUC, and per-class confusion metrics.'
+                      },
+                      {
+                        title: '2. Highest-Probability Assignment Dynamics',
+                        text: 'Multiclass decisions rely on argmax class probability scores. Misclassifications near decision boundaries should be monitored via class probability distributions.'
+                      },
+                      {
+                        title: '3. Dataset-Specific Generalization',
+                        text: 'Validation reflects historical distribution across target categories. Subgroup distribution shifts require continuous re-validation.'
+                      },
+                      {
+                        title: '4. Correlation vs Causation',
+                        text: 'Feature importance attributions reflect associative predictive signals, not direct causal levers.'
+                      },
+                      {
+                        title: '5. Temporal & Concept Drift',
+                        text: 'Category boundaries and feature relationships evolve over time, requiring scheduled retraining and performance monitoring.'
                       }
                     ] : [
                       {
@@ -1103,8 +1267,8 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                       }
                     ]).map((risk, idx) => (
                       <div key={idx} className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/80 space-y-2">
-                        <h4 className="font-bold text-xs text-amber-900">{risk.title}</h4>
-                        <p className="text-xs text-slate-600 leading-relaxed">{risk.text}</p>
+                        <h4 className="font-bold text-xs text-amber-900">{stripMarkdown(risk.title)}</h4>
+                        <p className="text-xs text-slate-600 leading-relaxed">{renderFormattedText(risk.text)}</p>
                       </div>
                     ))
                   )}

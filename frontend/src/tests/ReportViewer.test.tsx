@@ -159,4 +159,82 @@ describe('ReportViewer Visual Diagnostics & 4-Pillar Architecture', () => {
     fireEvent.click(screen.getByRole('button', { name: /✕ Close/i }));
     expect(screen.queryByRole('button', { name: /✕ Close/i })).toBeNull();
   });
+
+  it('renders classification section for classification reports and hides it for regression and forecasting', () => {
+    const regressionReport: Report = {
+      ...mockReport,
+      id: 'rep-reg-123',
+      title: 'AutoDS Analysis Report — California_Housing',
+      summary_markdown: 'Completed regression pipeline for goal "Predict median house value". Best Model: XGBoost.',
+      full_report_markdown: `# AutoDS Autonomous Data Science Report
+**Dataset:** \`California_Housing\`  
+**Task Type:** regression  
+
+The champion model selected is **XGBoost**, achieving a Test **RMSE of 0.45**, **MAE of 0.32**, and **R² of 0.81**.
+
+## 2. Dataset Overview & Data Quality Profile (Observed Facts)
+Total rows: 20640
+
+## 3. Model Leaderboard & Multi-Metric Evaluation
+| Model Name | Primary Loss Metric (CV RMSE) | CV Std | Train Time (s) | Model Family | Status |
+|---|---|---|---|---|---|
+| \`XGBoost\` | CV: 0.4612 | ±0.0120 | 2.10s | Gradient Boosting | **Champion** |
+
+## 5. Methodological Critic Audit
+All Methodological Critic Rules Passed Cleanly.
+`,
+      methodology_json: {
+        problem_type: 'regression',
+        plan: '5-Fold CV Regression',
+      },
+      artifact_paths: [
+        'reports/artifacts/rep-reg-123_XGBoost_actual_vs_pred.png',
+        'reports/artifacts/rep-reg-123_XGBoost_residuals.png',
+        'reports/artifacts/rep-reg-123_XGBoost_feature_imp.png',
+      ],
+    };
+
+    const forecastingReport: Report = {
+      ...regressionReport,
+      id: 'rep-fore-123',
+      summary_markdown: 'Completed forecasting pipeline. Best Model: LightGBM.',
+      full_report_markdown: `# AutoDS Autonomous Data Science Report
+**Task Type:** forecasting  
+The champion model selected is **LightGBM**.
+`,
+      methodology_json: {
+        problem_type: 'forecasting',
+      },
+    };
+
+    // A. Classification report: threshold section rendered
+    const { unmount: unmountClass } = render(
+      <BrowserRouter>
+        <ReportViewer report={mockReport} />
+      </BrowserRouter>
+    );
+    expect(screen.getByText(/3\. Classification Threshold Selection & Touchless Holdout Analysis/i)).toBeDefined();
+    unmountClass();
+
+    // B. Regression report: threshold section NOT rendered, titles correct
+    const { unmount: unmountReg } = render(
+      <BrowserRouter>
+        <ReportViewer report={regressionReport} />
+      </BrowserRouter>
+    );
+    expect(screen.queryByText(/3\. Classification Threshold Selection & Touchless Holdout Analysis/i)).toBeNull();
+    // Verify D: regression actual_vs_pred artifact title is "Actual vs Predicted / Forecast Comparison"
+    expect(screen.getByText(/XGBoost — Actual vs Predicted \/ Forecast Comparison/i)).toBeDefined();
+    expect(screen.getByText(/XGBoost — Residual Diagnostics & Error Distribution/i)).toBeDefined();
+    expect(screen.getByText(/XGBoost — Top Predictive Drivers \(Feature Importance\)/i)).toBeDefined();
+    unmountReg();
+
+    // C. Forecasting report: threshold section NOT rendered
+    render(
+      <BrowserRouter>
+        <ReportViewer report={forecastingReport} />
+      </BrowserRouter>
+    );
+    expect(screen.queryByText(/3\. Classification Threshold Selection & Touchless Holdout Analysis/i)).toBeNull();
+  });
 });

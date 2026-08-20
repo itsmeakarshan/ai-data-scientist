@@ -28,13 +28,13 @@ interface ReportViewerProps {
 const formatPlotTitle = (path: string, championModel?: string): string => {
   const filename = path.split('/').pop() || '';
   const prefix = championModel ? `${championModel} — ` : '';
-  if (filename.includes('_roc')) return `${prefix}ROC Curve (Receiver Operating Characteristic)`;
-  if (filename.includes('_pr')) return `${prefix}Precision-Recall Curve (PR-AUC)`;
-  if (filename.includes('_cm')) return `${prefix}Confusion Matrix (Locked Operating Threshold)`;
-  if (filename.includes('_feature_imp')) return `${prefix}Top Predictive Drivers (Feature Importance)`;
-  if (filename.includes('_residuals') || filename.includes('_resid')) return `${prefix}Residual Diagnostics & Error Distribution`;
-  if (filename.includes('_act_pred') || filename.includes('_actual_vs_pred')) return `${prefix}Actual vs Predicted / Forecast Comparison`;
-  if (filename.includes('_correlation') || filename.includes('_corr')) return 'Numeric Feature Correlation Matrix';
+  if (/_roc(\.png)?$/i.test(filename)) return `${prefix}ROC Curve (Receiver Operating Characteristic)`;
+  if (/_pr(\.png)?$/i.test(filename)) return `${prefix}Precision-Recall Curve (PR-AUC)`;
+  if (/_cm(\.png)?$/i.test(filename)) return `${prefix}Confusion Matrix (Locked Operating Threshold)`;
+  if (/_feature_imp(\.png)?$/i.test(filename)) return `${prefix}Top Predictive Drivers (Feature Importance)`;
+  if (/_residuals(\.png)?$/i.test(filename) || /_resid(\.png)?$/i.test(filename)) return `${prefix}Residual Diagnostics & Error Distribution`;
+  if (/_actual_vs_pred(\.png)?$/i.test(filename) || /_act_pred(\.png)?$/i.test(filename)) return `${prefix}Actual vs Predicted / Forecast Comparison`;
+  if (/_correlation(\.png)?$/i.test(filename) || /_corr(\.png)?$/i.test(filename)) return 'Numeric Feature Correlation Matrix';
   return filename || 'Diagnostic Visual Plot';
 };
 
@@ -109,6 +109,11 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
 
   // Parse sections from full_report_markdown
   const rawMd = report.full_report_markdown || '';
+
+  // Extract problem type (classification, regression, forecasting)
+  const problemTypeMatch = rawMd.match(/\*\*Task Type:\*\*\s*([A-Za-z0-9_-]+)/i) || rawMd.match(/completed\s+([A-Za-z0-9_-]+)\s+pipeline/i);
+  const problemType = (methodology.problem_type || (report as any).problem_type || (problemTypeMatch ? problemTypeMatch[1] : '')).toLowerCase();
+  const isClassification = problemType === 'classification' || rawMd.includes('Classification & Decision Threshold Analysis') || rawMd.includes('Threshold Optimization');
 
   // Extract champion model name
   const championMatch = report.summary_markdown?.match(/Best Model:\s*([A-Za-z0-9_-]+)/) || rawMd.match(/champion model selected is \*\*([^*]+)\*\*/i);
@@ -496,47 +501,49 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               </div>
             </div>
 
-            {/* PDF Section 3: Threshold Optimization & Holdout Tradeoff */}
-            <div className="space-y-4 pt-2">
-              <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
-                <span className="w-2 h-5 rounded-full bg-teal-600"></span>
-                <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
-                  3. Classification Threshold Selection & Touchless Holdout Analysis
-                </h3>
-              </div>
+            {/* PDF Section 3: Threshold Optimization & Holdout Tradeoff (Classification Only) */}
+            {isClassification && (
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center gap-2 border-b border-slate-200 pb-2">
+                  <span className="w-2 h-5 rounded-full bg-teal-600"></span>
+                  <h3 className="text-base font-black text-slate-900 uppercase tracking-tight">
+                    3. Classification Threshold Selection & Touchless Holdout Analysis
+                  </h3>
+                </div>
 
-              <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50 via-teal-50/50 to-indigo-50 border border-indigo-200 text-indigo-950 text-xs space-y-1">
-                <span className="font-extrabold uppercase text-indigo-900">OOF Threshold Optimization Disclosure:</span>
-                <p className="font-medium text-indigo-900/90 leading-relaxed">
-                  Operating cutoff threshold was selected on out-of-fold validation predictions (threshold: <strong>0.15</strong>, optimized for F2 score) and evaluated once on the locked holdout test set to guarantee zero label leakage.
-                </p>
-              </div>
+                <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50 via-teal-50/50 to-indigo-50 border border-indigo-200 text-indigo-950 text-xs space-y-1">
+                  <span className="font-extrabold uppercase text-indigo-900">OOF Threshold Optimization Disclosure:</span>
+                  <p className="font-medium text-indigo-900/90 leading-relaxed">
+                    Operating cutoff threshold was selected on out-of-fold validation predictions (threshold: <strong>0.15</strong>, optimized for F2 score) and evaluated once on the locked holdout test set to guarantee zero label leakage.
+                  </p>
+                </div>
 
-              {/* Holdout Confusion Matrix Grid */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
-                  Holdout Confusion Matrix (Locked 0.15 Operating Threshold)
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs font-mono">
-                  <div className="p-3 rounded-lg bg-white border border-slate-200">
-                    <span className="text-[10px] text-slate-500 font-sans block font-bold">True Negative (TN)</span>
-                    <span className="text-base font-extrabold text-slate-800">6,539</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
-                    <span className="text-[10px] text-amber-700 font-sans block font-bold">False Alarm (FP)</span>
-                    <span className="text-base font-extrabold text-amber-900">771</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-rose-50 border border-rose-200">
-                    <span className="text-[10px] text-rose-700 font-sans block font-bold">Unflagged (FN)</span>
-                    <span className="text-base font-extrabold text-rose-900">340</span>
-                  </div>
-                  <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-                    <span className="text-[10px] text-emerald-700 font-sans block font-bold">Captured (TP)</span>
-                    <span className="text-base font-extrabold text-emerald-900">588</span>
+                {/* Holdout Confusion Matrix Grid */}
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
+                    Holdout Confusion Matrix (Locked 0.15 Operating Threshold)
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center text-xs font-mono">
+                    <div className="p-3 rounded-lg bg-white border border-slate-200">
+                      <span className="text-[10px] text-slate-500 font-sans block font-bold">True Negative (TN)</span>
+                      <span className="text-base font-extrabold text-slate-800">6,539</span>
+                    </div>
+                    <div className="p-3 rounded-lg bg-amber-50 border border-amber-200">
+                      <span className="text-[10px] text-amber-700 font-sans block font-bold">False Alarm (FP)</span>
+                      <span className="text-base font-extrabold text-amber-900">771</span>
+                    </div>
+                    <div className="p-3 rounded-lg bg-rose-50 border border-rose-200">
+                      <span className="text-[10px] text-rose-700 font-sans block font-bold">Unflagged (FN)</span>
+                      <span className="text-base font-extrabold text-rose-900">340</span>
+                    </div>
+                    <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+                      <span className="text-[10px] text-emerald-700 font-sans block font-bold">Captured (TP)</span>
+                      <span className="text-base font-extrabold text-emerald-900">588</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            )}
 
             {/* PDF Section 4: Methodological Critic Audit */}
             <div className="space-y-4 pt-2">
@@ -682,7 +689,7 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               { id: 'all', label: 'Complete Report', icon: Layers },
               { id: 'summary', label: 'Executive Summary', icon: Sparkles },
               { id: 'leaderboard', label: 'Model Leaderboard', icon: BarChart3 },
-              { id: 'threshold', label: 'Threshold & Holdout', icon: Activity },
+              ...(isClassification ? [{ id: 'threshold', label: 'Threshold & Holdout', icon: Activity }] : []),
               { id: 'critic', label: 'Critic Audit', icon: ShieldCheck },
               { id: 'insights', label: '4-Pillar Insights', icon: TrendingUp },
               { id: 'risks', label: 'Operational Risks', icon: AlertTriangle },
@@ -837,8 +844,8 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
               </div>
             )}
 
-            {/* Section 3: Threshold & Holdout Analysis */}
-            {(activeTab === 'all' || activeTab === 'threshold') && (
+            {/* Section 3: Threshold & Holdout Analysis (Classification Only) */}
+            {isClassification && (activeTab === 'all' || activeTab === 'threshold') && (
               <div className="glass-panel p-6 rounded-3xl space-y-6">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
@@ -1052,32 +1059,49 @@ export const ReportViewer: React.FC<ReportViewerProps> = ({ report, onDeleteRepo
                       </div>
                     ))
                   ) : (
-                    [
+                    (isClassification ? [
                       {
                         title: '1. Base Rate & Imbalance Hazards',
-                        text: 'When positive class prevalence is low (11.27%), raw accuracy creates an illusion of high quality. Operational teams must strictly monitor PR-AUC, Positive Recall, and Positive Precision.'
+                        text: 'When positive class prevalence is low, raw accuracy creates an illusion of high quality. Operational teams must strictly monitor PR-AUC, Positive Recall, and Positive Precision.'
                       },
                       {
-                        title: '2. False Negative Revenue Impact',
-                        text: 'In acquisition campaigns, False Negatives represent missed conversion opportunities. Operating at default 0.50 cutoff causes severe under-capture of interested prospects.'
+                        title: '2. Decision Threshold Dependence',
+                        text: 'Model predictions are continuous probabilities. Operational actions strictly depend on the operating threshold, which must be recalibrated if sales capacity changes.'
                       },
                       {
-                        title: '3. Decision Threshold Dependence',
-                        text: 'Model predictions are continuous probabilities. Operational actions strictly depend on the operating threshold (0.15), which must be recalibrated if sales capacity changes.'
+                        title: '3. Dataset-Specific Generalization',
+                        text: 'Validation reflects historical demographic and temporal environment. Performance may drift if deployed across new customer segments.'
                       },
                       {
-                        title: '4. Dataset-Specific Generalization',
-                        text: 'Validation reflects the historical demographic, geographic, and temporal environment of the dataset. Performance may drift if deployed across new customer segments.'
+                        title: '4. Correlation vs Causation',
+                        text: 'Feature importance rankings indicate statistical signal, not causal drivers. Changing prospect attributes will not causally force outcomes without A/B trial validation.'
                       },
                       {
-                        title: '5. Correlation vs Causation',
-                        text: 'Feature importance rankings indicate statistical signal, not causal drivers. Changing prospect attributes will not causally force conversions without A/B trial validation.'
-                      },
-                      {
-                        title: '6. Temporal & Macro Drift',
+                        title: '5. Temporal & Macro Drift',
                         text: 'External economic indicators and consumer behavior drift over time. Deployment requires periodic performance monitoring and scheduled retraining.'
                       }
-                    ].map((risk, idx) => (
+                    ] : [
+                      {
+                        title: '1. Out-of-Bounds & Outlier Sensitivity',
+                        text: 'Continuous target estimators can be sensitive to severe outliers or extreme values outside the training distribution.'
+                      },
+                      {
+                        title: '2. Residual Error Heteroscedasticity',
+                        text: 'Prediction variance may non-uniformly increase across larger magnitude target values; monitor error variance across subsets.'
+                      },
+                      {
+                        title: '3. Dataset-Specific Generalization',
+                        text: 'Validation reflects historical environment and distribution. Performance may drift if deployed under novel macro conditions.'
+                      },
+                      {
+                        title: '4. Correlation vs Causation',
+                        text: 'Feature attribution rankings represent statistical associations, not guaranteed causal outcome levers.'
+                      },
+                      {
+                        title: '5. Temporal & Distributional Drift',
+                        text: 'Target distributions and relationship boundaries evolve over time. Continuous monitoring and retraining are recommended.'
+                      }
+                    ]).map((risk, idx) => (
                       <div key={idx} className="p-4 rounded-2xl bg-amber-50/40 border border-amber-200/80 space-y-2">
                         <h4 className="font-bold text-xs text-amber-900">{risk.title}</h4>
                         <p className="text-xs text-slate-600 leading-relaxed">{risk.text}</p>
